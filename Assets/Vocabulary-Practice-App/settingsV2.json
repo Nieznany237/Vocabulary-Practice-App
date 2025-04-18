@@ -1,0 +1,15 @@
+{
+  "VERSION": 1,
+  "IGNORE_VERSION_ERROR": false,
+  
+  "APP_SETTINGS": {
+    "title": "Vocabulary Practice App",
+    "window_size": "535x520",
+    "SetIcon": true,
+    "resizable": [true, true],
+    "Language": "en",
+    "appearance_mode": "dark",
+    "color_theme": "Assets\\Vocabulary-Practice-App\\Themes\\red.json",
+    "ui_zoom_factor": 1.075
+  }
+}
