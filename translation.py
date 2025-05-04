@@ -30,7 +30,7 @@ TRANSLATIONS_PL = {
         "question_label": {
             "default": "Załaduj plik, aby rozpocząć",
             "File_error": "Plik jest pusty lub niewłaściwy!",
-            "TranslateIt": "Podaj tłumaczenie słowa:",
+            "TranslateIt": "Przetłumacz to:",
             "No_words": "Brak dostępnych słówek do wyświetlenia!",
             "Not_loaded": "Brak załadowanych słówek!"
             },
@@ -106,7 +106,7 @@ TRANSLATIONS_EN = {
         "question_label": {
             "default": "Load the file to start",
             "File_error": "The file is empty or invalid!",
-            "TranslateIt": "Provide the translation of this word:",
+            "TranslateIt": "Translate it:",
             "No_words": "No available words to display!",
             "Not_loaded": "No words loaded!"
             },

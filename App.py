@@ -9,13 +9,14 @@ import sys
 import webbrowser
 import platform
 import json
+
 # temp
 from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
     "version": "1.2.0",
-    "release_date": "18.04.2025"
+    "release_date": "04.05.2025"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -251,7 +252,6 @@ class MainApp():
                 with open(file_path, "r", encoding="utf-8") as file:
                     lines = file.readlines()
 
-                    # Pomijamy pierwszą linijkę z nazwami języków
                     for line_number, line in enumerate(lines[1:], start=2):
                         if " - " in line:
                             Left_Lang, Right_Lang = line.strip().split(" - ")
@@ -271,7 +271,7 @@ class MainApp():
 
         def get_language_names(file_path):
             """Returns the language names from the first line of the file and updates the text of the radiobuttons."""
-            language_names = ("Left", "Right")  # domyślne nazwy
+            language_names = ("Left", "Right") 
 
             try:
                 with open(file_path, "r", encoding="utf-8") as file:
@@ -340,6 +340,7 @@ class MainApp():
             self.radio_Left_Lang_to_Right_Lang.configure(state=state)
             self.radio_Right_Lang_to_Left_Lang.configure(state=state)
             self.radio_mixed.configure(state=state)
+            self.clear_button.configure(state=state)
 
         def disable_all_buttons():
             """Deactivates all buttons and radiobuttons."""
@@ -383,7 +384,7 @@ class MainApp():
                     hint = selected_word["Right_Lang"][:3] + "..."
                 else:
                     hint = selected_word["Left_Lang"][:3] + "..."
-                self.result_label.configure(text=f"{t_path('main_window.result_label.percent')} {hint}")
+                self.result_label.configure(text=f"{t_path('main_window.result_label.hint_text')} {hint}")
                 hint_shown = True
 
         def check_answer():
@@ -482,7 +483,7 @@ class MainApp():
         # Sekcja File
         file_button = self.menu.add_cascade(t_path("menubar.file.file"))
         file_dropdown = CustomDropdownMenu(widget=file_button)
-        file_dropdown.add_option(option=t_path("menubar.file.load_file"), command=lambda: open_file_dialog(self))
+        file_dropdown.add_option(option=t_path("menubar.file.load_file"), command=lambda: open_file_dialog())
         file_dropdown.add_option(option=t_path('main_window.buttons.clear_button'), command=lambda: clear_blocked_lines())
         file_dropdown.add_separator()
         file_dropdown.add_option(option=t_path("menubar.file.exit"), command=lambda: self.root.quit())
@@ -540,7 +541,8 @@ class MainApp():
 
         # Frame for buttons
         self.button_frame = ctk.CTkFrame(
-            self.main_frame,)
+            self.main_frame,
+            border_width=1,)
         self.button_frame.pack(pady=(10, 10))
 
         # Button to reveal hints
@@ -610,11 +612,11 @@ class MainApp():
 
         self.radio_mixed = ctk.CTkRadioButton(
             self.radio_frame,
-            text=t_path('main_window.Radiobuttons.both'), # mixed
+            text=f"{t_path('main_window.Radiobuttons.both')}", # mixed
             font=("Arial", 13),
             variable=self.mode_var,
             value="mixed",
-            command=lambda: set_mode(self, self.mode_var.get()),
+            command=lambda: set_mode(self.mode_var.get()),
             state="disabled"
             )
         self.radio_mixed.pack(side="left", padx=(5,10), pady=(10,10))
@@ -638,7 +640,8 @@ class MainApp():
         self.clear_button = ctk.CTkButton(
             self.button_frame2,
             text=t_path('main_window.buttons.clear_button'), # "Wyczyść listę blokady",
-            command=lambda: clear_blocked_lines()
+            command=lambda: clear_blocked_lines(),
+            state="disabled"
         )
         self.clear_button.grid(row=0, column=1, padx=(0,5), pady=5, sticky="e")
 
@@ -829,7 +832,6 @@ class AboutWindow(ctk.CTkToplevel):
         label.pack(padx=(0, 0), pady=(0, 0), anchor="w")
         label.bind("<Button-1>", lambda e: webbrowser.open_new_tab(url))
         return label
-
 
 root = ctk.CTk()
 app = MainApp(root)
