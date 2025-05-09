@@ -38,7 +38,7 @@ APP_SETTINGS = {
 # Stan programu
 words = []
 selected_word = None  # Initialize selected_word as None
-mode = "mixed"  # Initialize mode with a default value
+selected_mode = "mixed"  # Initialize mode with a default value
 hint_shown = False  # Initialize hint_shown as False
 
 available_words = ""  # Initialize available_words as an empty string
@@ -224,13 +224,6 @@ class MainApp():
     def __init__(self, root):
         super().__init__()
 
-
-        def set_app_appearance_mode(theme):
-            ctk.set_appearance_mode(theme)
-
-            if APP_SETTINGS["SetIcon"]:
-                set_window_icon(self)
-
         # ==========================================================================
         # Main functions
 
@@ -308,7 +301,7 @@ class MainApp():
             - Determines the question text based on the current mode (left-to-right, right-to-left, or mixed).
             - Updates the UI with the new question, line info, and resets input/result fields.
             """
-            global selected_word, mode, hint_shown, available_words
+            global selected_word, selected_mode, current_mode, hint_shown, available_words
             if not words:
                 # Brak załadowanych słówek!
                 self.question_label.configure(text=t_path("main_window.question_label.Not_loaded"))
@@ -334,11 +327,11 @@ class MainApp():
             if self.block_repeated_questions.get():
                 blocked_lines.add(selected_word["line_number"])
 
-            question_text = selected_word["Left_Lang"] if mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
+            question_text = selected_word["Left_Lang"] if selected_mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
 
             # Always pick a random direction if mode is "mixed"
-            current_mode = mode
-            if mode == "mixed":
+            current_mode = selected_mode
+            if selected_mode == "mixed":
                 current_mode = random.choice(["Left_Lang_to_Right_Lang", "Right_Lang_to_Left_Lang"])
             question_text = selected_word["Left_Lang"] if current_mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
 
@@ -385,7 +378,7 @@ class MainApp():
             """Reveals the first letters (3) of the correct translation.""" 
             global hint_shown
             if not hint_shown:
-                if mode == "Left_Lang_to_Right_Lang":
+                if current_mode == "Left_Lang_to_Right_Lang":
                     hint = selected_word["Right_Lang"][:3] + "..."
                 else:
                     hint = selected_word["Left_Lang"][:3] + "..."
@@ -398,11 +391,16 @@ class MainApp():
                 self.result_label.configure(text=t_path('main_window.result_label.No_words'))
                 return
             user_translation = self.entry.get()
-            if mode == "Left_Lang_to_Right_Lang":
+            if current_mode == "Left_Lang_to_Right_Lang":
                 correct = selected_word["Right_Lang"]
             else:
                 correct = selected_word["Left_Lang"]
             
+            # Debug
+            print(f"\n============ \nUser input: {user_translation}")
+            print(f"Correct answer: {correct}")
+            print(f"Mode: {current_mode}\n============ \n")
+
             accuracy = calculate_accuracy(correct, user_translation)
             self.result_label.configure(text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct}")
 
@@ -412,8 +410,8 @@ class MainApp():
 
         def set_mode(new_mode):
             """Changes the application mode.""" 
-            global mode
-            mode = new_mode
+            global selected_mode
+            selected_mode = new_mode
             pick_new_word()
 
         def open_file_dialog():
@@ -425,7 +423,7 @@ class MainApp():
                 if words:
                     enable_all_buttons()
                     clear_blocked_lines()
-                    pick_new_word()
+                    #pick_new_word()
                 else:
                     # Plik jest pusty lub niewłaściwy!
                     self.question_label.configure(text=t_path("main_window.question_label.File_error"))
@@ -456,6 +454,12 @@ class MainApp():
 
         # ==========================================================================
         # UI
+
+        def set_app_appearance_mode(theme):
+            ctk.set_appearance_mode(theme)
+
+            if APP_SETTINGS["SetIcon"]:
+                set_window_icon(self)
 
         ctk.set_appearance_mode(APP_SETTINGS["appearance_mode"])
         try:
