@@ -11,12 +11,13 @@ import platform
 import json
 
 # temp
+import difflib
 from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.2.0",
-    "release_date": "04.05.2025"
+    "version": "1.2.1",
+    "release_date": "09.05.2025"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -169,24 +170,15 @@ def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
     except Exception as e:
         print(f"[ERROR]: Unexpected error: {e}")
 
-# Loading settings
-# If you don't want to load settings from JSON, then comment out the function call
+# Loading settings from JSON file
 load_settings_from_json()
 
 if APP_SETTINGS["Language"] == "pl":
-    # Load Right_Lang translations
+    # Loads 'Polish' translations
     from translation import TRANSLATIONS_PL as TRANSLATIONS
 else:
-    # Load Left_Lang translations
+    # Loads 'English' translations [Default when language is not specified or incorrect]
     from translation import TRANSLATIONS_EN as TRANSLATIONS
-
-# JSON DEBUG
-'''
-print("FONT_SETTINGS:", FONT_SETTINGS)
-print("APP_SETTINGS:", APP_SETTINGS)
-print("COLOR_SETTINGS:", COLOR_SETTINGS)
-'''
-
 
 def change_ui_scale(scale=0):
     APP_SETTINGS["ui_zoom_factor"] += scale
@@ -243,7 +235,18 @@ class MainApp():
         # Main functions
 
         def load_words_from_file(file_path=None):
-            """Returns only a list of vocabulary words from the file, ignoring the first line."""
+            """
+            Reads a vocabulary file and returns a list of word pairs, ignoring the first line.
+            Each line after the first is expected to be in the format "Left_Lang - Right_Lang".
+            Lines where the left and right words are identical are skipped.
+            Args:
+                file_path (str, optional): Path to the vocabulary file. Defaults to None.
+            Returns:
+                list[dict]: A list of dictionaries, each containing:
+                    - "Left_Lang": The word in the left language.
+                    - "Right_Lang": The word in the right language.
+                    - "line_number": The line number in the file (starting from 2).
+            """
             words_list = []
             if not file_path:
                 return words_list
@@ -293,7 +296,18 @@ class MainApp():
             return language_names
 
         def pick_new_word():
-            """Losuje nowe słowo zgodnie z wybranym trybem, z uwzględnieniem blokady."""
+            """
+            Selects a new word for the vocabulary practice session according to the current mode and blocklist settings.
+            This function:
+            - Checks if any words are loaded; if not, updates the UI to indicate this and returns.
+            - Resets the hint display state.
+            - Filters available words based on whether repeated questions are blocked.
+            - If no words are available after filtering, updates the UI and disables relevant buttons.
+            - Randomly selects a word from the available pool.
+            - If blocking repeated questions, adds the selected word's line number to the blocklist.
+            - Determines the question text based on the current mode (left-to-right, right-to-left, or mixed).
+            - Updates the UI with the new question, line info, and resets input/result fields.
+            """
             global selected_word, mode, hint_shown, available_words
             if not words:
                 # Brak załadowanych słówek!
@@ -321,14 +335,21 @@ class MainApp():
                 blocked_lines.add(selected_word["line_number"])
 
             question_text = selected_word["Left_Lang"] if mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
+
+            # Always pick a random direction if mode is "mixed"
+            current_mode = mode
             if mode == "mixed":
-                mode = random.choice(["Left_Lang_to_Right_Lang", "Right_Lang_to_Left_Lang"])
-                print(f"Mode: {mode}")
-                question_text = selected_word["Left_Lang"] if mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
+                current_mode = random.choice(["Left_Lang_to_Right_Lang", "Right_Lang_to_Left_Lang"])
+            question_text = selected_word["Left_Lang"] if current_mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
+
+            print(f"\nSelected word: {selected_word['Left_Lang']} - {selected_word['Right_Lang']}")
+            print(f"Line number: {selected_word['line_number']}")
+            print(f"Mode: {current_mode}")
+            print("Question text:", question_text)
 
             # Podaj tłumaczenie słowa:
-            self.question_label.configure(text=f"{t_path("main_window.question_label.TranslateIt")} {question_text}")
-            self.line_info_label.configure(text=f"{t_path("main_window.line_info_label")} {selected_word['line_number']}", text_color="gray")
+            self.question_label.configure(text=f"{t_path('main_window.question_label.TranslateIt')} {question_text}")
+            self.line_info_label.configure(text=f"{t_path('main_window.line_info_label')} {selected_word['line_number']}", text_color="gray")
             self.entry.delete(0, ctk.END)
             self.result_label.configure(text="")
 
@@ -349,32 +370,16 @@ class MainApp():
         def enable_all_buttons():
             """Activates all buttons and radiobuttons."""
             set_buttons_state("normal")
-
+        
         def calculate_accuracy(correct, user_input):
             """
-            Calculates the accuracy of the user's input compared to the correct answer.
-
-            Args:
-                correct (str): The correct answer.
-                user_input (str): The user's input.
-
-            Returns:
-                float: The accuracy percentage (0 to 100).
+            Calculates the percentage match between the correct answer and the user's answer.
             """
-            # Convert both strings to lowercase for case-insensitive comparison
             correct = correct.lower()
             user_input = user_input.lower()
-
-            # Determine the minimum length to avoid index errors during comparison
-            min_length = min(len(correct), len(user_input))
-
-            # Count the number of matching characters at the same positions
-            match_count = sum(1 for i in range(min_length) if correct[i] == user_input[i])
-
-            # Calculate accuracy as a percentage of matching characters in the correct answer
-            accuracy = (match_count / len(correct)) * 100 if len(correct) > 0 else 0
-
-            return accuracy
+            
+            ratio = difflib.SequenceMatcher(None, correct, user_input).ratio()
+            return ratio * 100
 
         def show_hint():
             """Reveals the first letters (3) of the correct translation.""" 
@@ -426,7 +431,6 @@ class MainApp():
                     self.question_label.configure(text=t_path("main_window.question_label.File_error"))
                     disable_all_buttons()
 
-
         def toggle_block_repeated():
             """Enables or disables the blocking of repeated questions."""
             if self.block_repeated_questions.get():
@@ -468,8 +472,8 @@ class MainApp():
         # Binding keyboard events to functions
         self.root.bind("<Return>", lambda event: check_answer()) # Enter key
         self.root.bind("<Right>", lambda event: skip_word()) # Right arrow key
-        self.root.bind("<Control-c>", lambda event: clear_blocked_lines()) # C key
-        self.root.bind("<Control-o>", lambda event: open_file_dialog()) # O key
+        self.root.bind("<Control-c>", lambda event: clear_blocked_lines()) # ctrl-C key
+        self.root.bind("<Control-o>", lambda event: open_file_dialog()) # ctrl-O key
 
         # Better scaling of UI elements
         change_ui_scale()
