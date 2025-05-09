@@ -9,9 +9,9 @@ import sys
 import webbrowser
 import platform
 import json
+import difflib
 
 # temp
-import difflib
 from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
