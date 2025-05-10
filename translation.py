@@ -21,8 +21,8 @@ TRANSLATIONS_PL = {
         "about": {
             "about": "O aplikacji",
             "about_this_app": "O tej aplikacji",
-            "get_program_path_debug": "Get program path [DEBUG]",
-            "get_cache_info": "Print cache info [CLI - DEBUG]",
+            "get_program_path_debug": "Get program path",
+            "get_cache_info": "Print cache info",
         }
     },
     
@@ -97,8 +97,8 @@ TRANSLATIONS_EN = {
         "about": {
             "about": "About",
             "about_this_app": "About this app",
-            "get_program_path_debug": "Get program path [DEBUG]",
-            "get_cache_info": "Print cache info [CLI - DEBUG]",
+            "get_program_path_debug": "Get program path",
+            "get_cache_info": "Print cache info",
         }
     },
     
