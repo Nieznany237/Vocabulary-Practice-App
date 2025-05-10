@@ -159,9 +159,16 @@ else:
     from translation import TRANSLATIONS_EN as TRANSLATIONS
 
 def change_ui_scale(scale=0):
-    APP_SETTINGS["ui_zoom_factor"] += scale
-    
-    APP_SETTINGS["ui_zoom_factor"] = round(APP_SETTINGS["ui_zoom_factor"], 3)
+    MIN_ZOOM = 0.6
+    MAX_ZOOM = 3.0
+    new_zoom = round(APP_SETTINGS["ui_zoom_factor"] + scale, 3)
+    if new_zoom < MIN_ZOOM:
+        print(f"[WARNING] UI zoom factor too small: {new_zoom} (min: {MIN_ZOOM})")
+        return
+    if new_zoom > MAX_ZOOM:
+        print(f"[WARNING] UI zoom factor too large: {new_zoom} (max: {MAX_ZOOM})")
+        return
+    APP_SETTINGS["ui_zoom_factor"] = new_zoom
     print(f"UI zoom factor: {APP_SETTINGS['ui_zoom_factor']}")
     ctk.set_window_scaling(APP_SETTINGS["ui_zoom_factor"])
     ctk.set_widget_scaling(APP_SETTINGS["ui_zoom_factor"])
@@ -358,6 +365,9 @@ class MainApp():
             self.clear_button.configure(state=state)
             self.entry.configure(state=state)
 
+            # MenuBar
+            file_clear_blocklist_option.configure(state=state)
+
         def disable_all_buttons():
             """Deactivates all buttons and radiobuttons."""
             set_buttons_state("disabled")
@@ -389,9 +399,8 @@ class MainApp():
 
         def check_answer():
             """Checks the correctness of the entered translation."""
-            if not available_words:
-                return
-            
+            if not words:
+                return print("Action blocked")
             if not selected_word:
                 self.result_label.configure(text=t_path('main_window.result_label.No_words'))
                 return
@@ -411,8 +420,8 @@ class MainApp():
                 text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct}")
 
         def skip_word():
-            if not available_words:
-                return
+            if not words:
+                return print("Action blocked")
             """Skips the current word and moves on to the next one.""" 
             pick_new_word()
 
@@ -446,16 +455,15 @@ class MainApp():
 
         def clear_blocked_lines():
             """Clears the list of blocked line numbers."""
+            if not words:
+                return print("Action blocked")
+            
             global blocked_lines
             print(f"Blocked lines: {blocked_lines}")
             blocked_lines.clear()
             print("Block list cleared.")
 
             skip_word()
-            if not available_words:
-                print("N/A")
-                return
-        
             self.check_button.configure(state="normal")
             self.hint_button.configure(state="normal")
 
@@ -498,38 +506,37 @@ class MainApp():
         #* https://github.com/Akascape/CTkMenuBar?tab=readme-ov-file#methods-1
 
         # Sekcja File
+        # File menu
         file_button_MenuBar = self.menu.add_cascade(t_path("menubar.file.file"))
         file_dropdown = CustomDropdownMenu(widget=file_button_MenuBar)
 
-        special_label = f"{t_path('menubar.file.load_file'):<26} [Ctrl+O]"
-        file_dropdown.add_option(option=special_label, command=lambda: open_file_dialog())
-
-        special_label = f"{t_path('main_window.buttons.clear_button'):<25} [Ctrl+C]"
-        file_dropdown.add_option(option=special_label, command=lambda: clear_blocked_lines())
-
+        file_load_option = file_dropdown.add_option(option=f"{t_path('menubar.file.load_file'):<26} [Ctrl+O]",command=lambda: open_file_dialog())
+        file_clear_blocklist_option = file_dropdown.add_option(option=f"{t_path('main_window.buttons.clear_button'):<25} [Ctrl+C]",command=lambda: clear_blocked_lines(), state="disabled")
         file_dropdown.add_separator()
-        file_dropdown.add_option(option=t_path("menubar.file.exit"), command=lambda: self.root.quit())
+        file_exit_option = file_dropdown.add_option(option=t_path("menubar.file.exit"),command=lambda: self.root.quit())
 
-        # Sekcja Appearance
+        # Appearance menu
         appearance_button_MenuBar = self.menu.add_cascade(t_path("menubar.appearance.appearance"))
         appearance_dropdown = CustomDropdownMenu(widget=appearance_button_MenuBar)
-        appearance_dropdown.add_option(option=t_path("menubar.appearance.dark_mode"), command=lambda: set_app_appearance_mode("Dark"))
-        appearance_dropdown.add_option(option=t_path("menubar.appearance.light_mode"), command=lambda: set_app_appearance_mode("Light"))
-        appearance_dropdown.add_separator()
-        appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_in"), command=lambda: change_ui_scale(0.1))
-        appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_out"), command=lambda: change_ui_scale(-0.1))
 
-        # Sekcja About
+        appearance_dark_mode_option = appearance_dropdown.add_option(option=t_path("menubar.appearance.dark_mode"),command=lambda: set_app_appearance_mode("Dark"))
+        appearance_light_mode_option = appearance_dropdown.add_option(option=t_path("menubar.appearance.light_mode"),command=lambda: set_app_appearance_mode("Light"))
+        appearance_dropdown.add_separator()
+        appearance_zoom_in_option = appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_in"),command=lambda: change_ui_scale(0.1))
+        appearance_zoom_out_option = appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_out"),command=lambda: change_ui_scale(-0.1))
+
+        # About menu
         about_button_MenuBar = self.menu.add_cascade(t_path("menubar.about.about"))
         about_dropdown = CustomDropdownMenu(widget=about_button_MenuBar)
-        about_dropdown.add_option(option=t_path("menubar.about.about_this_app"), command=lambda: AboutWindow(root))
-        about_dropdown.add_separator()
 
-        # Sekcja DEBUG
-        debug_button_MenuBar = self.menu.add_cascade("Debug tools")
+        about_about_this_app_option = about_dropdown.add_option(option=t_path("menubar.about.about_this_app"),command=lambda: AboutWindow(root))
+
+        # Debug menu
+        debug_button_MenuBar = self.menu.add_cascade("Debug")
         debug_dropdown = CustomDropdownMenu(widget=debug_button_MenuBar)
-        debug_dropdown.add_option(option=t_path("menubar.about.get_program_path_debug"), command=lambda: get_program_path(show_messagebox=True))
-        debug_dropdown.add_option(option=t_path("menubar.about.get_cache_info"), command=lambda: get_cache_info())
+
+        debug_get_program_path_option = debug_dropdown.add_option(option=t_path("menubar.about.get_program_path_debug"),command=lambda: get_program_path(show_messagebox=True))
+        debug_get_cache_info_option = debug_dropdown.add_option(option=t_path("menubar.about.get_cache_info"),command=lambda: get_cache_info())
 
         # Main Frame
         self.main_frame = ctk.CTkFrame(
