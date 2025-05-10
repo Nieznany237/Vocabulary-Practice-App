@@ -43,8 +43,69 @@ hint_shown = False  # Initialize hint_shown as False
 
 available_words = ""  # Initialize available_words as an empty string
 
+JSON_Loaded_flag = False  # Initialize JSON_Loaded_flag as False
+
 # Lista blokowanych numerów linii
 blocked_lines = set()
+
+# Function to load settings from a JSON file
+def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
+    """
+    Function: load_settings_from_json(file_path)
+    Loads application settings from a JSON file into global variables.
+
+    Args:
+        file_path: Path to JSON settings file RESOURCE_FILE_PATHS["json_config"]
+
+    Behavior:
+    - Validates JSON version
+    - Loads one setting categories:
+    - APP_SETTINGS (merged with existing)
+    - Falls back to default settings on errors
+
+    Error Handling:
+    - Version mismatch (unless IGNORE_VERSION_ERROR=True)
+    - Missing file
+    - JSON decode errors
+    - Other unexpected errors
+
+    Globals Modified:
+    - APP_SETTINGS 
+    """
+    global APP_SETTINGS, JSON_Loaded_flag
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            settings = json.load(f)
+        
+        # Check the JSON version
+        if "VERSION" in settings:
+            json_version = settings["VERSION"]
+            if json_version != REQUIRED_JSON_VERSION:
+                if "IGNORE_VERSION_ERROR" in settings and settings["IGNORE_VERSION_ERROR"]:
+                    print(f"[WARNING]: The JSON version ({json_version}) does not match the required version ({REQUIRED_JSON_VERSION}), but the error is ignored. The settings will not be loaded.")
+                else:
+                    print(f"[ERROR]: JSON version ({json_version}) does not match required version ({REQUIRED_JSON_VERSION}). Default settings will be applied.")
+                    messagebox.showerror("Error", f"[ERROR]: JSON version ({json_version}) does not match required version ({REQUIRED_JSON_VERSION}). Default settings will be applied.")
+                return
+        else:
+            print("[WARNING]: JSON version information missing. Default settings will be applied.")
+            return
+
+        # Merge application settings with existing ones
+        if "APP_SETTINGS" in settings:
+            APP_SETTINGS.update(settings["APP_SETTINGS"])
+            JSON_Loaded_flag = True
+
+        print("[INFO]: Loaded settings from file.")
+
+    except FileNotFoundError:
+        print(f"[WARNING]: File {file_path} not found. Using default settings.")
+    except json.JSONDecodeError as e:
+        print(f"[ERROR]: JSON decoding error: {e}")
+        print("Using default settings.")
+    except Exception as e:
+        print(f"[ERROR]: Unexpected error: {e}")
 
 def set_window_icon(app):
     """
@@ -86,89 +147,6 @@ def set_window_icon(app):
     # Set icon only if loaded correctly
     if icon_loaded:
         app.root.wm_iconbitmap()
-
-def get_program_path(show_messagebox=False):
-    # Print the current working directory (for debug purposes)
-    print("\n=== Debug: Program Path ===")
-    print("Current program directory:", os.getcwd())
-    print("Frozen? (PyInstaller)",getattr(sys, 'frozen', False))
-    print("Compiled? (Nuitka)", "__compiled__" in globals())
-    print("=== Debug: Program Path ===\n")
-    if show_messagebox:
-        messagebox.showinfo(
-            "Program Path", 
-            f"Current program directory: {os.getcwd()}\n\n"
-            f"Frozen? (PyInstaller) - {getattr(sys, 'frozen', False)}\n"
-            f"Compiled? (Nuitka) - {'__compiled__' in globals()}"
-            )
-
-get_program_path()
-
-
-# Function to convert lists to tuples for fonts
-def convert_font_lists_to_tuples(font_settings):
-    for key, value in font_settings.items():
-        if isinstance(value, list):
-            font_settings[key] = tuple(value)
-    return font_settings
-
-# Function to load settings from a JSON file
-def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
-    """
-    Function: load_settings_from_json(file_path)
-    Loads application settings from a JSON file into global variables.
-
-    Args:
-        file_path: Path to JSON settings file RESOURCE_FILE_PATHS["json_config"]
-
-    Behavior:
-    - Validates JSON version
-    - Loads one setting categories:
-    - APP_SETTINGS (merged with existing)
-    - Falls back to default settings on errors
-
-    Error Handling:
-    - Version mismatch (unless IGNORE_VERSION_ERROR=True)
-    - Missing file
-    - JSON decode errors
-    - Other unexpected errors
-
-    Globals Modified:
-    - APP_SETTINGS 
-    """
-    global APP_SETTINGS
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            settings = json.load(f)
-        
-        # Check the JSON version
-        if "VERSION" in settings:
-            json_version = settings["VERSION"]
-            if json_version != REQUIRED_JSON_VERSION:
-                if "IGNORE_VERSION_ERROR" in settings and settings["IGNORE_VERSION_ERROR"]:
-                    print(f"[WARNING]: The JSON version ({json_version}) does not match the required version ({REQUIRED_JSON_VERSION}), but the error is ignored. The settings will not be loaded.")
-                else:
-                    print(f"[ERROR]: JSON version ({json_version}) does not match required version ({REQUIRED_JSON_VERSION}). Default settings will be applied.")
-                    messagebox.showerror("Error", f"[ERROR]: JSON version ({json_version}) does not match required version ({REQUIRED_JSON_VERSION}). Default settings will be applied.")
-                return
-        else:
-            print("[WARNING]: JSON version information missing. Default settings will be applied.")
-            return
-
-        # Merge application settings with existing ones
-        if "APP_SETTINGS" in settings:
-            APP_SETTINGS.update(settings["APP_SETTINGS"])
-
-        print("[INFO]: Loaded settings from file.")
-
-    except FileNotFoundError:
-        print(f"[WARNING]: File {file_path} not found. Using default settings.")
-    except json.JSONDecodeError as e:
-        print(f"[ERROR]: JSON decoding error: {e}")
-        print("Using default settings.")
-    except Exception as e:
-        print(f"[ERROR]: Unexpected error: {e}")
 
 # Loading settings from JSON file
 load_settings_from_json()
@@ -216,9 +194,30 @@ def t_path(path):
     except KeyError:
         return f"[{path}]"
 
+# ==========================================================================
+# Debugging functions
+
+def get_program_path(show_messagebox=False):
+    # Print the current working directory (for debug purposes)
+    print("\n=== Debug: Program Path ===")
+    print("Current program directory:", os.getcwd())
+    print(f"JSON file loaded? {'Successful' if JSON_Loaded_flag else 'Failed'}")
+    print("Frozen? (PyInstaller)",getattr(sys, 'frozen', False))
+    print("Compiled? (Nuitka)", "__compiled__" in globals())
+    print("=== Debug: Program Path ===\n")
+    if show_messagebox:
+        messagebox.showinfo(
+            "Program Path", 
+            f"Current program directory: {os.getcwd()}\n\n"
+            f"JSON file loaded? - {'Successful' if JSON_Loaded_flag else 'Failed'}\n"
+            f"Frozen? (PyInstaller) - {getattr(sys, 'frozen', False)}\n"
+            f"Compiled? (Nuitka) - {'__compiled__' in globals()}"
+            )
+
+get_program_path()
+
 def get_cache_info():
     print(t_path.cache_info())
-
 
 class MainApp():
     def __init__(self, root):
@@ -317,8 +316,10 @@ class MainApp():
             if not available_words:
                 # Brak dostępnych słówek do wyświetlenia!
                 self.question_label.configure(text=t_path("main_window.question_label.No_words"))
+
                 self.check_button.configure(state="disabled")
                 self.hint_button.configure(state="disabled")
+                self.skip_button.configure(state="disabled")
                 return
 
             selected_word = random.choice(available_words)
@@ -355,6 +356,7 @@ class MainApp():
             self.radio_Right_Lang_to_Left_Lang.configure(state=state)
             self.radio_mixed.configure(state=state)
             self.clear_button.configure(state=state)
+            self.entry.configure(state=state)
 
         def disable_all_buttons():
             """Deactivates all buttons and radiobuttons."""
@@ -386,7 +388,10 @@ class MainApp():
                 hint_shown = True
 
         def check_answer():
-            """Checks the correctness of the entered translation.""" 
+            """Checks the correctness of the entered translation."""
+            if not available_words:
+                return
+            
             if not selected_word:
                 self.result_label.configure(text=t_path('main_window.result_label.No_words'))
                 return
@@ -397,14 +402,17 @@ class MainApp():
                 correct = selected_word["Left_Lang"]
             
             # Debug
-            print(f"\n============ \nUser input: {user_translation}")
+            print(f"\n======================== \nUser input: {user_translation}")
             print(f"Correct answer: {correct}")
-            print(f"Mode: {current_mode}\n============ \n")
+            print(f"Mode: {current_mode}\n======================== \n")
 
             accuracy = calculate_accuracy(correct, user_translation)
-            self.result_label.configure(text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct}")
+            self.result_label.configure(
+                text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct}")
 
         def skip_word():
+            if not available_words:
+                return
             """Skips the current word and moves on to the next one.""" 
             pick_new_word()
 
@@ -487,18 +495,24 @@ class MainApp():
             set_window_icon(self)
 
         self.menu = CTkMenuBar(root, padx=0)
+        #* https://github.com/Akascape/CTkMenuBar?tab=readme-ov-file#methods-1
 
         # Sekcja File
-        file_button = self.menu.add_cascade(t_path("menubar.file.file"))
-        file_dropdown = CustomDropdownMenu(widget=file_button)
-        file_dropdown.add_option(option=t_path("menubar.file.load_file"), command=lambda: open_file_dialog())
-        file_dropdown.add_option(option=t_path('main_window.buttons.clear_button'), command=lambda: clear_blocked_lines())
+        file_button_MenuBar = self.menu.add_cascade(t_path("menubar.file.file"))
+        file_dropdown = CustomDropdownMenu(widget=file_button_MenuBar)
+
+        special_label = f"{t_path('menubar.file.load_file'):<26} [Ctrl+O]"
+        file_dropdown.add_option(option=special_label, command=lambda: open_file_dialog())
+
+        special_label = f"{t_path('main_window.buttons.clear_button'):<25} [Ctrl+C]"
+        file_dropdown.add_option(option=special_label, command=lambda: clear_blocked_lines())
+
         file_dropdown.add_separator()
         file_dropdown.add_option(option=t_path("menubar.file.exit"), command=lambda: self.root.quit())
 
         # Sekcja Appearance
-        appearance_button = self.menu.add_cascade(t_path("menubar.appearance.appearance"))
-        appearance_dropdown = CustomDropdownMenu(widget=appearance_button)
+        appearance_button_MenuBar = self.menu.add_cascade(t_path("menubar.appearance.appearance"))
+        appearance_dropdown = CustomDropdownMenu(widget=appearance_button_MenuBar)
         appearance_dropdown.add_option(option=t_path("menubar.appearance.dark_mode"), command=lambda: set_app_appearance_mode("Dark"))
         appearance_dropdown.add_option(option=t_path("menubar.appearance.light_mode"), command=lambda: set_app_appearance_mode("Light"))
         appearance_dropdown.add_separator()
@@ -506,12 +520,16 @@ class MainApp():
         appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_out"), command=lambda: change_ui_scale(-0.1))
 
         # Sekcja About
-        about_button = self.menu.add_cascade(t_path("menubar.about.about"))
-        about_dropdown = CustomDropdownMenu(widget=about_button)
+        about_button_MenuBar = self.menu.add_cascade(t_path("menubar.about.about"))
+        about_dropdown = CustomDropdownMenu(widget=about_button_MenuBar)
         about_dropdown.add_option(option=t_path("menubar.about.about_this_app"), command=lambda: AboutWindow(root))
         about_dropdown.add_separator()
-        about_dropdown.add_option(option=t_path("menubar.about.get_program_path_debug"), command=lambda: get_program_path(show_messagebox=True))
-        about_dropdown.add_option(option=t_path("menubar.about.get_cache_info"), command=lambda: get_cache_info())
+
+        # Sekcja DEBUG
+        debug_button_MenuBar = self.menu.add_cascade("Debug tools")
+        debug_dropdown = CustomDropdownMenu(widget=debug_button_MenuBar)
+        debug_dropdown.add_option(option=t_path("menubar.about.get_program_path_debug"), command=lambda: get_program_path(show_messagebox=True))
+        debug_dropdown.add_option(option=t_path("menubar.about.get_cache_info"), command=lambda: get_cache_info())
 
         # Main Frame
         self.main_frame = ctk.CTkFrame(
@@ -540,22 +558,25 @@ class MainApp():
 
         # Field to enter the translation
         self.entry = ctk.CTkEntry(
-            self.main_frame, 
+            self.main_frame,
+            corner_radius=8,
+            border_width=1,
             placeholder_text=t_path("main_window.entry_placeholder"), # Wpisz tutaj tłumaczenie
             font=("Arial", 16), 
-            width=360
+            width=380,
+            state="disabled",
             )
         self.entry.pack(pady=(10, 10))
 
         # Frame for buttons
-        self.button_frame = ctk.CTkFrame(
+        self.top_controls_frame = ctk.CTkFrame(
             self.main_frame,
             border_width=1,)
-        self.button_frame.pack(pady=(10, 10))
+        self.top_controls_frame.pack(pady=(10, 10))
 
         # Button to reveal hints
         self.hint_button = ctk.CTkButton(
-            self.button_frame,
+            self.top_controls_frame,
             text=t_path("main_window.buttons.hint_button"), # Ujawnij pierwsze litery
             font=("Arial", 16),
             command=lambda: show_hint(),
@@ -565,7 +586,7 @@ class MainApp():
 
         # Button to check answers
         self.check_button = ctk.CTkButton(
-            self.button_frame, 
+            self.top_controls_frame, 
             text=t_path("main_window.buttons.check_button"), # Sprawdź
             font=("Arial", 16),
             command=lambda: check_answer(),
@@ -575,7 +596,7 @@ class MainApp():
 
         # Button to skip a word
         self.skip_button = ctk.CTkButton(
-            self.button_frame,
+            self.top_controls_frame,
             text=t_path("main_window.buttons.skip_button"), # Pomiń/Przejdź dalej
             font=("Arial", 16),
             command=lambda: skip_word(),
@@ -596,49 +617,57 @@ class MainApp():
 
         self.mode_var = ctk.StringVar(value="mixed")
 
+        # Radio buttons for translation mode selection
         self.radio_Left_Lang_to_Right_Lang = ctk.CTkRadioButton(
             self.radio_frame,
-            text=f"{t_path('main_window.Radiobuttons.left')} ► {t_path('main_window.Radiobuttons.right')}", # Lewy ► Prawy
+            border_width_unchecked=3,
+            border_width_checked=5,
+            text=f"{t_path('main_window.Radiobuttons.left')} ► {t_path('main_window.Radiobuttons.right')}",  # Lewy ► Prawy
             font=("Arial", 13),
             variable=self.mode_var,
             value="Left_Lang_to_Right_Lang",
             command=lambda: set_mode(self.mode_var.get()),
             state="disabled"
-            )
-        self.radio_Left_Lang_to_Right_Lang.pack(side="left", padx=(10,5), pady=(10,10))
-
+        )
         self.radio_Right_Lang_to_Left_Lang = ctk.CTkRadioButton(
             self.radio_frame,
-            text=f"{t_path('main_window.Radiobuttons.right')} ► {t_path('main_window.Radiobuttons.left')}",
+            border_width_unchecked=3,
+            border_width_checked=5,
+            text=f"{t_path('main_window.Radiobuttons.right')} ► {t_path('main_window.Radiobuttons.left')}", # Prawy ► Lewy
             font=("Arial", 13),
             variable=self.mode_var,
             value="Right_Lang_to_Left_Lang",
             command=lambda: set_mode(self.mode_var.get()),
             state="disabled"
-            )
-        self.radio_Right_Lang_to_Left_Lang.pack(side="left", padx=(5,5), pady=(10,10))
-
+        )
         self.radio_mixed = ctk.CTkRadioButton(
             self.radio_frame,
-            text=f"{t_path('main_window.Radiobuttons.both')}", # mixed
+            width=20,
+            border_width_unchecked=3,
+            border_width_checked=5,
+            text=f"{t_path('main_window.Radiobuttons.both')}",  # mixed
             font=("Arial", 13),
             variable=self.mode_var,
             value="mixed",
             command=lambda: set_mode(self.mode_var.get()),
             state="disabled"
-            )
-        self.radio_mixed.pack(side="left", padx=(5,10), pady=(10,10))
+        )
+
+        # Pack radio buttons in order
+        self.radio_Left_Lang_to_Right_Lang.pack(side="left", padx=(10, 5), pady=(10, 10))
+        self.radio_Right_Lang_to_Left_Lang.pack(side="left", padx=(5, 5), pady=(10, 10))
+        self.radio_mixed.pack(side="left", padx=(5, 10), pady=(10, 10))
 
         # flag
         self.block_repeated_questions = ctk.BooleanVar(value=False)
 
         # frame for buttons and checkbox
-        self.button_frame2 = ctk.CTkFrame(self.main_frame, border_width=1)
-        self.button_frame2.pack(pady=(5,5))
+        self.bottom_controls_frame = ctk.CTkFrame(self.main_frame, border_width=1)
+        self.bottom_controls_frame.pack(pady=(5,5))
 
         # button to load a file
         self.file_button = ctk.CTkButton(
-            self.button_frame2,
+            self.bottom_controls_frame,
             text=t_path('main_window.buttons.file_button'), # "Załaduj plik .txt"
             command=lambda: open_file_dialog()
         )
@@ -646,7 +675,7 @@ class MainApp():
 
         # Buton to clear the block list
         self.clear_button = ctk.CTkButton(
-            self.button_frame2,
+            self.bottom_controls_frame,
             text=t_path('main_window.buttons.clear_button'), # "Wyczyść listę blokady",
             command=lambda: clear_blocked_lines(),
             state="disabled"
@@ -655,7 +684,8 @@ class MainApp():
 
         # Checkbox to block repeated questions
         self.checkbox = ctk.CTkCheckBox(
-            self.button_frame2,
+            self.bottom_controls_frame,
+            border_width=2,
             text=t_path('main_window.checkbox.block_list'), # Blokuj powtarzające się pytania
             variable=self.block_repeated_questions,
             command=lambda: toggle_block_repeated()

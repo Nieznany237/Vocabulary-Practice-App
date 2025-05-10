@@ -16,7 +16,7 @@ You can use custom themes to change the appearance of the Vocabulary Practice Ap
 2. Open the `settingsV2.json` file.
 3. Set the `color_theme` path to your chosen theme file, for example:
    ```
-   "color_theme": "Assets\\Vocabulary-Practice-App\\Themes\\your_theme.json"
+   "color_theme": "Assets/Vocabulary-Practice-App/Themes/your_theme.json"
    ```
 
 Restart the app to apply the new theme.
