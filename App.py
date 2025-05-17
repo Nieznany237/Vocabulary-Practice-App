@@ -16,7 +16,7 @@ from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.2.1",
+    "version": "1.2.2",
     "release_date": "09.05.2025"
 }
 
@@ -464,8 +464,10 @@ class MainApp():
             print("Block list cleared.")
 
             skip_word()
+            #enable_all_buttons()
             self.check_button.configure(state="normal")
             self.hint_button.configure(state="normal")
+            self.skip_button.configure(state="normal")
 
 
         # ==========================================================================
