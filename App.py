@@ -36,7 +36,7 @@ APP_SETTINGS = {
 }
 
 # Stan programu
-words = []
+vocab_word_list = []
 selected_word = None  # Initialize selected_word as None
 selected_mode = "mixed"  # Initialize mode with a default value
 hint_shown = False  # Initialize hint_shown as False
@@ -101,6 +101,7 @@ def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
 
     except FileNotFoundError:
         print(f"[WARNING]: File {file_path} not found. Using default settings.")
+
     except json.JSONDecodeError as e:
         print(f"[ERROR]: JSON decoding error: {e}")
         print("Using default settings.")
@@ -226,9 +227,18 @@ get_program_path()
 def get_cache_info():
     print(t_path.cache_info())
 
+def print_status():
+    print(f"\nLoaded words: {len(vocab_word_list)}")
+    print(f"Selected word: {selected_word}")
+    print(f"Selected mode: {selected_mode}")
+    print(f"Hint shown: {hint_shown}")
+    print(f"Available words: {len(available_words)}")
+    print(f"Blocked lines: {blocked_lines}\n")
+
+    pprint(available_words, width=130)
 class MainApp():
     def __init__(self, root):
-        super().__init__()
+        #super().__init__()
 
         # ==========================================================================
         # Main functions
@@ -308,7 +318,7 @@ class MainApp():
             - Updates the UI with the new question, line info, and resets input/result fields.
             """
             global selected_word, selected_mode, current_mode, hint_shown, available_words
-            if not words:
+            if not vocab_word_list:
                 # Brak załadowanych słówek!
                 self.question_label.configure(text=t_path("main_window.question_label.Not_loaded"))
                 return
@@ -316,8 +326,8 @@ class MainApp():
             hint_shown = False
 
             # Filter words by blocklist
-            available_words = words if not self.block_repeated_questions.get() else [
-                word for word in words if word["line_number"] not in blocked_lines
+            available_words = vocab_word_list if not self.block_repeated_questions.get() else [
+                word for word in vocab_word_list if word["line_number"] not in blocked_lines
             ]
 
             if not available_words:
@@ -376,14 +386,14 @@ class MainApp():
             """Activates all buttons and radiobuttons."""
             set_buttons_state("normal")
         
-        def calculate_accuracy(correct, user_input):
+        def calculate_accuracy(correct_answer, user_input):
             """
             Calculates the percentage match between the correct answer and the user's answer.
             """
-            correct = correct.lower()
+            correct_answer = correct_answer.lower()
             user_input = user_input.lower()
             
-            ratio = difflib.SequenceMatcher(None, correct, user_input).ratio()
+            ratio = difflib.SequenceMatcher(None, correct_answer, user_input).ratio()
             return ratio * 100
 
         def show_hint():
@@ -399,28 +409,28 @@ class MainApp():
 
         def check_answer():
             """Checks the correctness of the entered translation."""
-            if not words:
+            if not vocab_word_list:
                 return print("Action blocked")
             if not selected_word:
                 self.result_label.configure(text=t_path('main_window.result_label.No_words'))
                 return
             user_translation = self.entry.get()
             if current_mode == "Left_Lang_to_Right_Lang":
-                correct = selected_word["Right_Lang"]
+                correct_answer = selected_word["Right_Lang"]
             else:
-                correct = selected_word["Left_Lang"]
+                correct_answer = selected_word["Left_Lang"]
             
             # Debug
             print(f"\n======================== \nUser input: {user_translation}")
-            print(f"Correct answer: {correct}")
+            print(f"Correct answer: {correct_answer}")
             print(f"Mode: {current_mode}\n======================== \n")
 
-            accuracy = calculate_accuracy(correct, user_translation)
+            accuracy = calculate_accuracy(correct_answer, user_translation)
             self.result_label.configure(
-                text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct}")
+                text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct_answer}")
 
         def skip_word():
-            if not words:
+            if not vocab_word_list:
                 return print("Action blocked")
             """Skips the current word and moves on to the next one.""" 
             pick_new_word()
@@ -433,11 +443,11 @@ class MainApp():
 
         def open_file_dialog():
             """Opens the file explorer and loads the selected file."""
-            global words
+            global vocab_word_list
             file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
             if file_path:
-                words = load_words_from_file(file_path)
-                if words:
+                vocab_word_list = load_words_from_file(file_path)
+                if vocab_word_list:
                     enable_all_buttons()
                     clear_blocked_lines()
                     #pick_new_word()
@@ -455,7 +465,7 @@ class MainApp():
 
         def clear_blocked_lines():
             """Clears the list of blocked line numbers."""
-            if not words:
+            if not vocab_word_list:
                 return print("Action blocked")
             
             global blocked_lines
@@ -539,6 +549,7 @@ class MainApp():
 
         debug_get_program_path_option = debug_dropdown.add_option(option=t_path("menubar.about.get_program_path_debug"),command=lambda: get_program_path(show_messagebox=True))
         debug_get_cache_info_option = debug_dropdown.add_option(option=t_path("menubar.about.get_cache_info"),command=lambda: get_cache_info())
+        debug_print_status_option = debug_dropdown.add_option(option="Print vocabulary status",command=lambda: print_status())
 
         # Main Frame
         self.main_frame = ctk.CTkFrame(
