@@ -43,7 +43,7 @@ hint_shown = False  # Initialize hint_shown as False
 
 available_words = ""  # Initialize available_words as an empty string
 
-JSON_Loaded_flag = False  # Initialize JSON_Loaded_flag as False
+JSON_Loaded_flag = "False - Unknown"  # Flag to check if JSON settings were loaded successfully
 
 # Lista blokowanych numerów linii
 blocked_lines = set()
@@ -82,6 +82,7 @@ def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
         if "VERSION" in settings:
             json_version = settings["VERSION"]
             if json_version != REQUIRED_JSON_VERSION:
+                JSON_Loaded_flag = "False - Version mismatch"
                 if "IGNORE_VERSION_ERROR" in settings and settings["IGNORE_VERSION_ERROR"]:
                     print(f"[WARNING]: The JSON version ({json_version}) does not match the required version ({REQUIRED_JSON_VERSION}), but the error is ignored. The settings will not be loaded.")
                 else:
@@ -95,18 +96,20 @@ def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
         # Merge application settings with existing ones
         if "APP_SETTINGS" in settings:
             APP_SETTINGS.update(settings["APP_SETTINGS"])
-            JSON_Loaded_flag = True
+            JSON_Loaded_flag = "True"
 
         print("[INFO]: Loaded settings from file.")
 
     except FileNotFoundError:
         print(f"[WARNING]: File {file_path} not found. Using default settings.")
-
+        JSON_Loaded_flag = "False - File not found"
     except json.JSONDecodeError as e:
         print(f"[ERROR]: JSON decoding error: {e}")
         print("Using default settings.")
+        JSON_Loaded_flag = "False - JSON decode error"
     except Exception as e:
         print(f"[ERROR]: Unexpected error: {e}")
+        JSON_Loaded_flag = "False - Unexpected error"
 
 def set_window_icon(app):
     """
@@ -210,7 +213,7 @@ def get_program_path(show_messagebox=False):
     # Print the current working directory (for debug purposes)
     print("\n=== Debug: Program Path ===")
     print("Current program directory:", os.getcwd())
-    print(f"JSON file loaded? {'Successful' if JSON_Loaded_flag else 'Failed'}")
+    print(f"JSON file loaded? {JSON_Loaded_flag}")
     print("Frozen? (PyInstaller)",getattr(sys, 'frozen', False))
     print("Compiled? (Nuitka)", "__compiled__" in globals())
     print("=== Debug: Program Path ===\n")
@@ -218,7 +221,7 @@ def get_program_path(show_messagebox=False):
         messagebox.showinfo(
             "Program Path", 
             f"Current program directory: {os.getcwd()}\n\n"
-            f"JSON file loaded? - {'Successful' if JSON_Loaded_flag else 'Failed'}\n"
+            f"JSON file loaded? - {JSON_Loaded_flag}\n"
             f"Frozen? (PyInstaller) - {getattr(sys, 'frozen', False)}\n"
             f"Compiled? (Nuitka) - {'__compiled__' in globals()}"
             )
@@ -262,15 +265,21 @@ class MainApp():
     def __init__(self, root):
         # ==========================================================================
 
+        # Initialize the main application window
+        self._stdout_backup = sys.stdout
+        self._stderr_backup = sys.stderr
+
         self.console_window = None
         self.console_textbox = None
 
         def open_console(self):
             try:
-                print("Opening console window... All event output will be redirected here.")
                 if self.console_window is not None and self.console_window.winfo_exists():
                     self.console_window.focus()
+                    print("Console window already open.")
                     return
+                else:
+                    print("Opening console window... All event output will be redirected here.")
 
                 self.console_window = ctk.CTkToplevel(self.root)
                 self.console_window.title("Console Output")
@@ -278,13 +287,14 @@ class MainApp():
 
                 self.console_frame = ctk.CTkFrame(
                     self.console_window,
-                    border_width=1,
+                    #border_width=1,
                 )
                 self.console_frame.pack(padx=5, pady=5, fill="both", expand=True)
                 self.console_textbox = ctk.CTkTextbox(
                     master=self.console_frame,
                     width=580,
                     height=350,
+                    border_width=1,
                     wrap=ctk.WORD,
                     state="disabled",  # Start as read-only
                 )
@@ -299,13 +309,20 @@ class MainApp():
             except Exception as e:
                 print(f"[ERROR] Failed to open console window: {e}")
 
+        def revert_console_output():
+            try:
+                sys.stdout = self._stdout_backup
+                sys.stderr = self._stderr_backup
+                print("Console output reverted to original stdout and stderr.")
+            except Exception as e:
+                print(f"[ERROR] Failed to revert console output: {e}")
+
         def console_close():
             try:
-                sys.stdout = sys.__stdout__
-                sys.stderr = sys.__stderr__
+                revert_console_output()
                 if self.console_window is not None:
                     self.console_window.destroy()
-                print("Console closed. Restoring stdout and stderr.")
+                print("Console closed..")
             except Exception as e:
                 print(f"[ERROR] Failed to close console window: {e}")
 
@@ -520,6 +537,7 @@ class MainApp():
                 else:
                     # Plik jest pusty lub niewłaściwy!
                     self.question_label.configure(text=t_path("main_window.question_label.File_error"))
+                    print("[open_file_dialog] - File is empty or invalid!")
                     disable_all_buttons()
 
         def toggle_block_repeated():
