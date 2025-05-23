@@ -16,7 +16,7 @@ from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.3.0-DEV",
+    "version": "1.3.0",
     "release_date": "23.05.2025"
 }
 
@@ -456,10 +456,11 @@ class MainApp():
                 current_mode = random.choice(["Left_Lang_to_Right_Lang", "Right_Lang_to_Left_Lang"])
             question_text = selected_word["Left_Lang"] if current_mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
 
-            print(f"\nSelected word: {selected_word['Left_Lang']} - {selected_word['Right_Lang']}")
+            print("\n=== Next word selected ===")
+            print(f"Selected word: {selected_word['Left_Lang']} - {selected_word['Right_Lang']}")
+            print("Showing question:", question_text)
             print(f"Line number: {selected_word['line_number']}")
             print(f"Mode: {current_mode}")
-            print("Question text:", question_text)
 
             # Podaj tłumaczenie słowa:
             self.question_label.configure(text=f"{t_path('main_window.question_label.TranslateIt')} {question_text}")
@@ -524,9 +525,12 @@ class MainApp():
                 correct_answer = selected_word["Left_Lang"]
             
             # Debug
-            print(f"\n======================== \nUser input: {user_translation}")
+            print("\n=== Checking answer ===")
+            print(f"User input: {user_translation}")
             print(f"Correct answer: {correct_answer}")
-            print(f"Mode: {current_mode}\n======================== \n")
+            print("precentage:", calculate_accuracy(correct_answer, user_translation))
+            print(f"Mode: {current_mode}\n")
+            
 
             accuracy = calculate_accuracy(correct_answer, user_translation)
             self.result_label.configure(
@@ -573,7 +577,7 @@ class MainApp():
                 return print("Action blocked - [ClearBlockList]")
             
             global blocked_lines
-            print(f"Blocked lines: {blocked_lines}")
+            print(f"\nBlocked lines: {blocked_lines}")
             blocked_lines.clear()
             print("Block list cleared.")
 
