@@ -228,6 +228,11 @@ def get_program_path(show_messagebox=False):
 
 get_program_path()
 
+def pprint_list_of_dicts(list_of_dicts, width=130):
+    try:
+        pprint(list_of_dicts, width=width)
+    except Exception as e:
+        print(f"[ERROR] Failed to pretty-print list of dictionaries: {e}")
 def get_cache_info():
     print(t_path.cache_info())
 
@@ -240,7 +245,7 @@ def print_status():
     print(f"Available words: {len(available_words)}")
     print(f"Blocked lines: {blocked_lines}\n")
 
-    pprint(available_words, width=130)
+    pprint_list_of_dicts(available_words, width=130)
     print("\n=== Debug: Vocabulary Status ===\n")
 
 class ConsoleRedirector:
@@ -252,7 +257,6 @@ class ConsoleRedirector:
 
     def write(self, text):
         # Insert text in a thread-safe way and keep the textbox read-only
-        
         self.widget.configure(state="normal")
         self.widget.insert(ctk.END, text)
         self.widget.see(ctk.END)
@@ -290,6 +294,15 @@ class MainApp():
                     #border_width=1,
                 )
                 self.console_frame.pack(padx=5, pady=5, fill="both", expand=True)
+                # Add clear button
+                self.clear_console_button = ctk.CTkButton(
+                    self.console_frame,
+                    text="Clear",
+                    command=lambda: clear_console(),
+                    width=60,
+                )
+                self.clear_console_button.pack(padx=2, pady=(2, 0), anchor="ne")
+
                 self.console_textbox = ctk.CTkTextbox(
                     master=self.console_frame,
                     width=580,
@@ -309,6 +322,12 @@ class MainApp():
             except Exception as e:
                 print(f"[ERROR] Failed to open console window: {e}")
 
+        def clear_console():
+            if self.console_textbox is not None:
+                self.console_textbox.configure(state="normal")
+                self.console_textbox.delete("1.0", ctk.END)
+                self.console_textbox.configure(state="disabled")
+
         def revert_console_output():
             try:
                 sys.stdout = self._stdout_backup
@@ -325,6 +344,8 @@ class MainApp():
                 print("Console closed..")
             except Exception as e:
                 print(f"[ERROR] Failed to close console window: {e}")
+
+        # ==========================================================================
 
         def load_words_from_file(file_path=None):
             """
@@ -360,9 +381,8 @@ class MainApp():
                 print(f"File {file_path} not found.")
             if file_path:
                 get_language_names(file_path)
-            pprint(words_list, width=130)
+                pprint_list_of_dicts(words_list, width=130)
             return words_list
-
 
         def get_language_names(file_path):
             """Returns the language names from the first line of the file and updates the text of the radiobuttons."""
