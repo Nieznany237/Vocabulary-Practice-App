@@ -200,6 +200,7 @@ def t_path(path):
             value = value[key]
         return value
     except KeyError:
+        print(f"[WARNING] Translation not found for path: {path}")
         return f"[{path}]"
 
 # ==========================================================================
@@ -248,6 +249,7 @@ class ConsoleRedirector:
 
     def write(self, text):
         # Insert text in a thread-safe way and keep the textbox read-only
+        
         self.widget.configure(state="normal")
         self.widget.insert(ctk.END, text)
         self.widget.see(ctk.END)
@@ -264,27 +266,48 @@ class MainApp():
         self.console_textbox = None
 
         def open_console(self):
-            if self.console_window is not None and self.console_window.winfo_exists():
-                self.console_window.focus()
-                return
+            try:
+                print("Opening console window... All event output will be redirected here.")
+                if self.console_window is not None and self.console_window.winfo_exists():
+                    self.console_window.focus()
+                    return
 
-            self.console_window = ctk.CTkToplevel(self.root)
-            self.console_window.title("Console Output")
-            self.console_window.geometry("600x400")
+                self.console_window = ctk.CTkToplevel(self.root)
+                self.console_window.title("Console Output")
+                self.console_window.geometry("600x400")
 
-            self.console_textbox = ctk.CTkTextbox(
-                master=self.console_window,
-                width=580,
-                height=350,
-                wrap=ctk.WORD,
-                state="disabled",  # Start as read-only
-            )
-            self.console_textbox.pack(padx=10, pady=10, fill="both", expand=True)
-            self.console_textbox.configure(font=("Cascadia Code", 12))
+                self.console_frame = ctk.CTkFrame(
+                    self.console_window,
+                    border_width=1,
+                )
+                self.console_frame.pack(padx=5, pady=5, fill="both", expand=True)
+                self.console_textbox = ctk.CTkTextbox(
+                    master=self.console_frame,
+                    width=580,
+                    height=350,
+                    wrap=ctk.WORD,
+                    state="disabled",  # Start as read-only
+                )
+                self.console_textbox.pack(padx=2, pady=2, fill="both", expand=True)
+                self.console_textbox.configure(font=("Cascadia Code", 12))
 
-            # Redirect stdout and stderr globally
-            sys.stdout = ConsoleRedirector(self.console_textbox)
-            sys.stderr = ConsoleRedirector(self.console_textbox)
+                # Redirect stdout and stderr globally
+                sys.stdout = ConsoleRedirector(self.console_textbox)
+                sys.stderr = ConsoleRedirector(self.console_textbox)
+
+                self.console_window.protocol("WM_DELETE_WINDOW", console_close)
+            except Exception as e:
+                print(f"[ERROR] Failed to open console window: {e}")
+
+        def console_close():
+            try:
+                sys.stdout = sys.__stdout__
+                sys.stderr = sys.__stderr__
+                if self.console_window is not None:
+                    self.console_window.destroy()
+                print("Console closed. Restoring stdout and stderr.")
+            except Exception as e:
+                print(f"[ERROR] Failed to close console window: {e}")
 
         def load_words_from_file(file_path=None):
             """
@@ -453,7 +476,7 @@ class MainApp():
         def check_answer():
             """Checks the correctness of the entered translation."""
             if not vocab_word_list:
-                return print("Action blocked")
+                return print("Action blocked - [CheckAnswer]")
             if not selected_word:
                 self.result_label.configure(text=t_path('main_window.result_label.No_words'))
                 return
@@ -474,7 +497,7 @@ class MainApp():
 
         def skip_word():
             if not vocab_word_list:
-                return print("Action blocked")
+                return print("Action blocked - [SkipWord]")
             """Skips the current word and moves on to the next one.""" 
             pick_new_word()
 
@@ -509,7 +532,7 @@ class MainApp():
         def clear_blocked_lines():
             """Clears the list of blocked line numbers."""
             if not vocab_word_list:
-                return print("Action blocked")
+                return print("Action blocked - [ClearBlockList]")
             
             global blocked_lines
             print(f"Blocked lines: {blocked_lines}")
