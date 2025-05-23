@@ -3,7 +3,7 @@
 # To use Polish, set "LANGUAGE": "pl" in the config file.
 # To use English, set "LANGUAGE": "en" in the config file.
 
-# Structure version 1.0.0
+# Structure version 1.1.0
 TRANSLATIONS_PL = {
     "menubar": {
         "file": {
@@ -20,9 +20,6 @@ TRANSLATIONS_PL = {
         },
         "about": {
             "about": "O aplikacji",
-            "about_this_app": "O tej aplikacji",
-            "get_program_path_debug": "Get program path",
-            "get_cache_info": "Print cache info",
         }
     },
     
@@ -96,9 +93,6 @@ TRANSLATIONS_EN = {
         },
         "about": {
             "about": "About",
-            "about_this_app": "About this app",
-            "get_program_path_debug": "Get program path",
-            "get_cache_info": "Print cache info",
         }
     },
     

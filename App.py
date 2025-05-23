@@ -16,8 +16,8 @@ from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.2.2",
-    "release_date": "09.05.2025"
+    "version": "1.3.0-DEV",
+    "release_date": "23.05.2025"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -228,6 +228,7 @@ def get_cache_info():
     print(t_path.cache_info())
 
 def print_status():
+    print("\n=== Debug: Vocabulary Status ===")
     print(f"\nLoaded words: {len(vocab_word_list)}")
     print(f"Selected word: {selected_word}")
     print(f"Selected mode: {selected_mode}")
@@ -236,12 +237,54 @@ def print_status():
     print(f"Blocked lines: {blocked_lines}\n")
 
     pprint(available_words, width=130)
+    print("\n=== Debug: Vocabulary Status ===\n")
+
+class ConsoleRedirector:
+    """
+    Redirects console output to a CTkTextbox widget in a thread-safe, read-only manner.
+    """
+    def __init__(self, widget):
+        self.widget = widget
+
+    def write(self, text):
+        # Insert text in a thread-safe way and keep the textbox read-only
+        self.widget.configure(state="normal")
+        self.widget.insert(ctk.END, text)
+        self.widget.see(ctk.END)
+        self.widget.configure(state="disabled")
+
+    def flush(self):
+        pass  # For compatibility
+
 class MainApp():
     def __init__(self, root):
-        #super().__init__()
-
         # ==========================================================================
-        # Main functions
+
+        self.console_window = None
+        self.console_textbox = None
+
+        def open_console(self):
+            if self.console_window is not None and self.console_window.winfo_exists():
+                self.console_window.focus()
+                return
+
+            self.console_window = ctk.CTkToplevel(self.root)
+            self.console_window.title("Console Output")
+            self.console_window.geometry("600x400")
+
+            self.console_textbox = ctk.CTkTextbox(
+                master=self.console_window,
+                width=580,
+                height=350,
+                wrap=ctk.WORD,
+                state="disabled",  # Start as read-only
+            )
+            self.console_textbox.pack(padx=10, pady=10, fill="both", expand=True)
+            self.console_textbox.configure(font=("Cascadia Code", 12))
+
+            # Redirect stdout and stderr globally
+            sys.stdout = ConsoleRedirector(self.console_textbox)
+            sys.stderr = ConsoleRedirector(self.console_textbox)
 
         def load_words_from_file(file_path=None):
             """
@@ -547,10 +590,11 @@ class MainApp():
         debug_button_MenuBar = self.menu.add_cascade("Debug")
         debug_dropdown = CustomDropdownMenu(widget=debug_button_MenuBar)
 
-        debug_get_program_path_option = debug_dropdown.add_option(option=t_path("menubar.about.get_program_path_debug"),command=lambda: get_program_path(show_messagebox=True))
-        debug_get_cache_info_option = debug_dropdown.add_option(option=t_path("menubar.about.get_cache_info"),command=lambda: get_cache_info())
-        debug_print_status_option = debug_dropdown.add_option(option="Print vocabulary status",command=lambda: print_status())
-
+        debug_get_program_path_option = debug_dropdown.add_option(option="Get Program Path",command=lambda: get_program_path(show_messagebox=True))
+        debug_get_cache_info_option = debug_dropdown.add_option(option="Print Cache Info",command=lambda: get_cache_info())
+        debug_print_status_option = debug_dropdown.add_option(option="Print Vocabulary Status",command=lambda: print_status())
+        debug_dropdown.add_separator()
+        debug_open_console_option = debug_dropdown.add_option(option="Open Console Output",command=lambda: open_console(self))
         # Main Frame
         self.main_frame = ctk.CTkFrame(
             root, 
