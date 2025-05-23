@@ -16,8 +16,8 @@ from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.2.1",
-    "release_date": "09.05.2025"
+    "version": "1.3.0",
+    "release_date": "23.05.2025"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -36,14 +36,14 @@ APP_SETTINGS = {
 }
 
 # Stan programu
-words = []
+vocab_word_list = []
 selected_word = None  # Initialize selected_word as None
 selected_mode = "mixed"  # Initialize mode with a default value
 hint_shown = False  # Initialize hint_shown as False
 
 available_words = ""  # Initialize available_words as an empty string
 
-JSON_Loaded_flag = False  # Initialize JSON_Loaded_flag as False
+JSON_Loaded_flag = "False - Unknown"  # Flag to check if JSON settings were loaded successfully
 
 # Lista blokowanych numerów linii
 blocked_lines = set()
@@ -82,6 +82,7 @@ def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
         if "VERSION" in settings:
             json_version = settings["VERSION"]
             if json_version != REQUIRED_JSON_VERSION:
+                JSON_Loaded_flag = "False - Version mismatch"
                 if "IGNORE_VERSION_ERROR" in settings and settings["IGNORE_VERSION_ERROR"]:
                     print(f"[WARNING]: The JSON version ({json_version}) does not match the required version ({REQUIRED_JSON_VERSION}), but the error is ignored. The settings will not be loaded.")
                 else:
@@ -95,17 +96,20 @@ def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
         # Merge application settings with existing ones
         if "APP_SETTINGS" in settings:
             APP_SETTINGS.update(settings["APP_SETTINGS"])
-            JSON_Loaded_flag = True
+            JSON_Loaded_flag = "True"
 
         print("[INFO]: Loaded settings from file.")
 
     except FileNotFoundError:
         print(f"[WARNING]: File {file_path} not found. Using default settings.")
+        JSON_Loaded_flag = "False - File not found"
     except json.JSONDecodeError as e:
         print(f"[ERROR]: JSON decoding error: {e}")
         print("Using default settings.")
+        JSON_Loaded_flag = "False - JSON decode error"
     except Exception as e:
         print(f"[ERROR]: Unexpected error: {e}")
+        JSON_Loaded_flag = "False - Unexpected error"
 
 def set_window_icon(app):
     """
@@ -199,6 +203,7 @@ def t_path(path):
             value = value[key]
         return value
     except KeyError:
+        print(f"[WARNING] Translation not found for path: {path}")
         return f"[{path}]"
 
 # ==========================================================================
@@ -208,7 +213,7 @@ def get_program_path(show_messagebox=False):
     # Print the current working directory (for debug purposes)
     print("\n=== Debug: Program Path ===")
     print("Current program directory:", os.getcwd())
-    print(f"JSON file loaded? {'Successful' if JSON_Loaded_flag else 'Failed'}")
+    print(f"JSON file loaded? {JSON_Loaded_flag}")
     print("Frozen? (PyInstaller)",getattr(sys, 'frozen', False))
     print("Compiled? (Nuitka)", "__compiled__" in globals())
     print("=== Debug: Program Path ===\n")
@@ -216,22 +221,131 @@ def get_program_path(show_messagebox=False):
         messagebox.showinfo(
             "Program Path", 
             f"Current program directory: {os.getcwd()}\n\n"
-            f"JSON file loaded? - {'Successful' if JSON_Loaded_flag else 'Failed'}\n"
+            f"JSON file loaded? - {JSON_Loaded_flag}\n"
             f"Frozen? (PyInstaller) - {getattr(sys, 'frozen', False)}\n"
             f"Compiled? (Nuitka) - {'__compiled__' in globals()}"
             )
 
 get_program_path()
 
+def pprint_list_of_dicts(list_of_dicts, width=130):
+    try:
+        pprint(list_of_dicts, width=width)
+    except Exception as e:
+        print(f"[ERROR] Failed to pretty-print list of dictionaries: {e}")
 def get_cache_info():
     print(t_path.cache_info())
 
+def print_status():
+    print("\n=== Debug: Vocabulary Status ===")
+    print(f"\nLoaded words: {len(vocab_word_list)}")
+    print(f"Selected word: {selected_word}")
+    print(f"Selected mode: {selected_mode}")
+    print(f"Hint shown: {hint_shown}")
+    print(f"Available words: {len(available_words)}")
+    print(f"Blocked lines: {blocked_lines}\n")
+
+    pprint_list_of_dicts(available_words, width=130)
+    print("\n=== Debug: Vocabulary Status ===\n")
+
+class ConsoleRedirector:
+    """
+    Redirects console output to a CTkTextbox widget in a thread-safe, read-only manner.
+    """
+    def __init__(self, widget):
+        self.widget = widget
+
+    def write(self, text):
+        # Insert text in a thread-safe way and keep the textbox read-only
+        self.widget.configure(state="normal")
+        self.widget.insert(ctk.END, text)
+        self.widget.see(ctk.END)
+        self.widget.configure(state="disabled")
+
+    def flush(self):
+        pass  # For compatibility
+
 class MainApp():
     def __init__(self, root):
-        super().__init__()
+        # ==========================================================================
+
+        # Initialize the main application window
+        self._stdout_backup = sys.stdout
+        self._stderr_backup = sys.stderr
+
+        self.console_window = None
+        self.console_textbox = None
+
+        def open_console(self):
+            try:
+                if self.console_window is not None and self.console_window.winfo_exists():
+                    self.console_window.focus()
+                    print("Console window already open.")
+                    return
+                else:
+                    print("Opening console window... All event output will be redirected here.")
+
+                self.console_window = ctk.CTkToplevel(self.root)
+                self.console_window.title("Console Output")
+                self.console_window.geometry("600x400")
+
+                self.console_frame = ctk.CTkFrame(
+                    self.console_window,
+                    #border_width=1,
+                )
+                self.console_frame.pack(padx=5, pady=5, fill="both", expand=True)
+                # Add clear button
+                self.clear_console_button = ctk.CTkButton(
+                    self.console_frame,
+                    text="Clear",
+                    command=lambda: clear_console(),
+                    width=60,
+                )
+                self.clear_console_button.pack(padx=2, pady=(2, 0), anchor="ne")
+
+                self.console_textbox = ctk.CTkTextbox(
+                    master=self.console_frame,
+                    width=580,
+                    height=350,
+                    border_width=1,
+                    wrap=ctk.WORD,
+                    state="disabled",  # Start as read-only
+                )
+                self.console_textbox.pack(padx=2, pady=2, fill="both", expand=True)
+                self.console_textbox.configure(font=("Cascadia Code", 12))
+
+                # Redirect stdout and stderr globally
+                sys.stdout = ConsoleRedirector(self.console_textbox)
+                sys.stderr = ConsoleRedirector(self.console_textbox)
+
+                self.console_window.protocol("WM_DELETE_WINDOW", console_close)
+            except Exception as e:
+                print(f"[ERROR] Failed to open console window: {e}")
+
+        def clear_console():
+            if self.console_textbox is not None:
+                self.console_textbox.configure(state="normal")
+                self.console_textbox.delete("1.0", ctk.END)
+                self.console_textbox.configure(state="disabled")
+
+        def revert_console_output():
+            try:
+                sys.stdout = self._stdout_backup
+                sys.stderr = self._stderr_backup
+                print("Console output reverted to original stdout and stderr.")
+            except Exception as e:
+                print(f"[ERROR] Failed to revert console output: {e}")
+
+        def console_close():
+            try:
+                revert_console_output()
+                if self.console_window is not None:
+                    self.console_window.destroy()
+                print("Console closed..")
+            except Exception as e:
+                print(f"[ERROR] Failed to close console window: {e}")
 
         # ==========================================================================
-        # Main functions
 
         def load_words_from_file(file_path=None):
             """
@@ -267,9 +381,8 @@ class MainApp():
                 print(f"File {file_path} not found.")
             if file_path:
                 get_language_names(file_path)
-            pprint(words_list, width=130)
+                pprint_list_of_dicts(words_list, width=130)
             return words_list
-
 
         def get_language_names(file_path):
             """Returns the language names from the first line of the file and updates the text of the radiobuttons."""
@@ -308,7 +421,7 @@ class MainApp():
             - Updates the UI with the new question, line info, and resets input/result fields.
             """
             global selected_word, selected_mode, current_mode, hint_shown, available_words
-            if not words:
+            if not vocab_word_list:
                 # Brak załadowanych słówek!
                 self.question_label.configure(text=t_path("main_window.question_label.Not_loaded"))
                 return
@@ -316,8 +429,8 @@ class MainApp():
             hint_shown = False
 
             # Filter words by blocklist
-            available_words = words if not self.block_repeated_questions.get() else [
-                word for word in words if word["line_number"] not in blocked_lines
+            available_words = vocab_word_list if not self.block_repeated_questions.get() else [
+                word for word in vocab_word_list if word["line_number"] not in blocked_lines
             ]
 
             if not available_words:
@@ -343,10 +456,11 @@ class MainApp():
                 current_mode = random.choice(["Left_Lang_to_Right_Lang", "Right_Lang_to_Left_Lang"])
             question_text = selected_word["Left_Lang"] if current_mode == "Left_Lang_to_Right_Lang" else selected_word["Right_Lang"]
 
-            print(f"\nSelected word: {selected_word['Left_Lang']} - {selected_word['Right_Lang']}")
+            print("\n=== Next word selected ===")
+            print(f"Selected word: {selected_word['Left_Lang']} - {selected_word['Right_Lang']}")
+            print("Showing question:", question_text)
             print(f"Line number: {selected_word['line_number']}")
             print(f"Mode: {current_mode}")
-            print("Question text:", question_text)
 
             # Podaj tłumaczenie słowa:
             self.question_label.configure(text=f"{t_path('main_window.question_label.TranslateIt')} {question_text}")
@@ -376,14 +490,14 @@ class MainApp():
             """Activates all buttons and radiobuttons."""
             set_buttons_state("normal")
         
-        def calculate_accuracy(correct, user_input):
+        def calculate_accuracy(correct_answer, user_input):
             """
             Calculates the percentage match between the correct answer and the user's answer.
             """
-            correct = correct.lower()
+            correct_answer = correct_answer.lower()
             user_input = user_input.lower()
             
-            ratio = difflib.SequenceMatcher(None, correct, user_input).ratio()
+            ratio = difflib.SequenceMatcher(None, correct_answer, user_input).ratio()
             return ratio * 100
 
         def show_hint():
@@ -399,29 +513,32 @@ class MainApp():
 
         def check_answer():
             """Checks the correctness of the entered translation."""
-            if not words:
-                return print("Action blocked")
+            if not vocab_word_list:
+                return print("Action blocked - [CheckAnswer]")
             if not selected_word:
                 self.result_label.configure(text=t_path('main_window.result_label.No_words'))
                 return
             user_translation = self.entry.get()
             if current_mode == "Left_Lang_to_Right_Lang":
-                correct = selected_word["Right_Lang"]
+                correct_answer = selected_word["Right_Lang"]
             else:
-                correct = selected_word["Left_Lang"]
+                correct_answer = selected_word["Left_Lang"]
             
             # Debug
-            print(f"\n======================== \nUser input: {user_translation}")
-            print(f"Correct answer: {correct}")
-            print(f"Mode: {current_mode}\n======================== \n")
+            print("\n=== Checking answer ===")
+            print(f"User input: {user_translation}")
+            print(f"Correct answer: {correct_answer}")
+            print("precentage:", calculate_accuracy(correct_answer, user_translation))
+            print(f"Mode: {current_mode}\n")
+            
 
-            accuracy = calculate_accuracy(correct, user_translation)
+            accuracy = calculate_accuracy(correct_answer, user_translation)
             self.result_label.configure(
-                text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct}")
+                text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct_answer}")
 
         def skip_word():
-            if not words:
-                return print("Action blocked")
+            if not vocab_word_list:
+                return print("Action blocked - [SkipWord]")
             """Skips the current word and moves on to the next one.""" 
             pick_new_word()
 
@@ -433,17 +550,18 @@ class MainApp():
 
         def open_file_dialog():
             """Opens the file explorer and loads the selected file."""
-            global words
+            global vocab_word_list
             file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
             if file_path:
-                words = load_words_from_file(file_path)
-                if words:
+                vocab_word_list = load_words_from_file(file_path)
+                if vocab_word_list:
                     enable_all_buttons()
                     clear_blocked_lines()
                     #pick_new_word()
                 else:
                     # Plik jest pusty lub niewłaściwy!
                     self.question_label.configure(text=t_path("main_window.question_label.File_error"))
+                    print("[open_file_dialog] - File is empty or invalid!")
                     disable_all_buttons()
 
         def toggle_block_repeated():
@@ -455,17 +573,19 @@ class MainApp():
 
         def clear_blocked_lines():
             """Clears the list of blocked line numbers."""
-            if not words:
-                return print("Action blocked")
+            if not vocab_word_list:
+                return print("Action blocked - [ClearBlockList]")
             
             global blocked_lines
-            print(f"Blocked lines: {blocked_lines}")
+            print(f"\nBlocked lines: {blocked_lines}")
             blocked_lines.clear()
             print("Block list cleared.")
 
             skip_word()
+            #enable_all_buttons()
             self.check_button.configure(state="normal")
             self.hint_button.configure(state="normal")
+            self.skip_button.configure(state="normal")
 
 
         # ==========================================================================
@@ -535,9 +655,11 @@ class MainApp():
         debug_button_MenuBar = self.menu.add_cascade("Debug")
         debug_dropdown = CustomDropdownMenu(widget=debug_button_MenuBar)
 
-        debug_get_program_path_option = debug_dropdown.add_option(option=t_path("menubar.about.get_program_path_debug"),command=lambda: get_program_path(show_messagebox=True))
-        debug_get_cache_info_option = debug_dropdown.add_option(option=t_path("menubar.about.get_cache_info"),command=lambda: get_cache_info())
-
+        debug_get_program_path_option = debug_dropdown.add_option(option="Get Program Path",command=lambda: get_program_path(show_messagebox=True))
+        debug_get_cache_info_option = debug_dropdown.add_option(option="Print Cache Info",command=lambda: get_cache_info())
+        debug_print_status_option = debug_dropdown.add_option(option="Print Vocabulary Status",command=lambda: print_status())
+        debug_dropdown.add_separator()
+        debug_open_console_option = debug_dropdown.add_option(option="Open Console Output",command=lambda: open_console(self))
         # Main Frame
         self.main_frame = ctk.CTkFrame(
             root, 

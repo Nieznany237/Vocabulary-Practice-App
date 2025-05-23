@@ -1,3 +1,8 @@
 /__pycache__
 1.ico
 /Temp
+/App.build
+/App.dist
+/App.onefile-build
+/output
+App.exe
