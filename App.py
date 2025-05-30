@@ -1,11 +1,7 @@
 import customtkinter as ctk
 from CTkMenuBar import *
-from PIL import Image
 import random
 from tkinter import filedialog
-import sys
-import webbrowser
-import platform
 import difflib
 
 from modules.translation_utils import t_path, load_translations
@@ -109,7 +105,7 @@ def print_status():
 class MainApp():
     def __init__(self, root):
         # ==========================================================================
-        self.gui_console = GUIConsole(root)
+        self.gui_console = GUIConsole(root, APP_SETTINGS)
 
         def open_console(self):
             self.gui_console.open()
@@ -423,7 +419,7 @@ class MainApp():
         debug_button_MenuBar = self.menu.add_cascade("Debug")
         debug_dropdown = CustomDropdownMenu(widget=debug_button_MenuBar)
 
-        debug_get_program_path_option = debug_dropdown.add_option(option="Get Program Path",command=lambda: get_program_path(show_messagebox=True))
+        debug_get_program_path_option = debug_dropdown.add_option(option="Get Program Path",command=lambda: get_program_path(show_messagebox=True, status_flag=JSON_Loaded_flag))
         debug_get_cache_info_option = debug_dropdown.add_option(option="Print Cache Info",command=lambda: get_cache_info())
         debug_print_status_option = debug_dropdown.add_option(option="Print Vocabulary Status",command=lambda: print_status())
         debug_dropdown.add_separator()

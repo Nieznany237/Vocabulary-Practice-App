@@ -6,7 +6,7 @@ Reusable console output redirection and window for CustomTkinter-based apps.
 """
 import sys
 import customtkinter as ctk
-
+from modules.utils import set_app_icon 
 __version__ = "1.1.0"
 
 class ConsoleRedirector:
@@ -32,9 +32,10 @@ class GUIConsole:
     *     gui_console = GUIConsole(parent)
     *     gui_console.open()
     """
-    def __init__(self, root, title="Console Output", width=600, height=400, font=("Cascadia Code", 12)):
+    def __init__(self, root, APP_SETTINGS ,title="Console Output", width=600, height=400, font=("Cascadia Code", 12)):
         self.root = root
         self.title = title
+        self.APP_SETTINGS = APP_SETTINGS
         self.width = width
         self.height = height
         self.font = font
@@ -42,6 +43,15 @@ class GUIConsole:
         self.console_textbox = None
         self._stdout_backup = sys.stdout
         self._stderr_backup = sys.stderr
+
+    def set_icon(self, app_settings):
+        """Set AboutWindow icon with Windows workaround (uses set_app_icon from utils if available)."""
+        if app_settings.get("SetIcon", False):
+            try:
+                from modules.utils import set_app_icon
+                set_app_icon(self.console_window)
+            except Exception as e:
+                print(f"[AboutWindow] set_app_icon failed: {e}")
 
     def open(self):
         if self.console_window is not None and self.console_window.winfo_exists():
@@ -83,6 +93,7 @@ class GUIConsole:
         print("Console output redirected to the console window.")
 
         self.console_window.protocol("WM_DELETE_WINDOW", self.close)
+        self.set_icon(self.APP_SETTINGS)
 
     def clear(self):
         if self.console_textbox is not None:

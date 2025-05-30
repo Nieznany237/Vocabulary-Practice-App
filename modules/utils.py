@@ -18,6 +18,8 @@ def get_program_path(show_messagebox=False, status_flag=None):
     print("Current program directory:", os.getcwd())
     if status_flag is not None:
         print(f"Status flag: {status_flag}")
+    else:
+        print("Status flag: Not provided")
     print("Frozen? (PyInstaller)", getattr(sys, 'frozen', False))
     print("Compiled? (Nuitka)", "__compiled__" in globals())
     print("=== Debug: Program Path ===\n")
