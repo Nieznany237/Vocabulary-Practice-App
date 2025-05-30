@@ -2,22 +2,25 @@ import customtkinter as ctk
 from CTkMenuBar import *
 import os
 from PIL import Image, ImageTk
-from functools import lru_cache
 import random
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import sys
 import webbrowser
 import platform
 import json
 import difflib
 
+from modules.translation_utils import t_path, load_translations
+import modules.translation_utils
+from modules.utils import get_program_path, load_settings_from_json
+
 # temp
 from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.3.0",
-    "release_date": "23.05.2025"
+    "version": "1.4.0-DEV",
+    "release_date": "30.05.2025"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -47,69 +50,6 @@ JSON_Loaded_flag = "False - Unknown"  # Flag to check if JSON settings were load
 
 # Lista blokowanych numerów linii
 blocked_lines = set()
-
-# Function to load settings from a JSON file
-def load_settings_from_json(file_path = RESOURCE_FILE_PATHS["json_config"]):
-    """
-    Function: load_settings_from_json(file_path)
-    Loads application settings from a JSON file into global variables.
-
-    Args:
-        file_path: Path to JSON settings file RESOURCE_FILE_PATHS["json_config"]
-
-    Behavior:
-    - Validates JSON version
-    - Loads one setting categories:
-    - APP_SETTINGS (merged with existing)
-    - Falls back to default settings on errors
-
-    Error Handling:
-    - Version mismatch (unless IGNORE_VERSION_ERROR=True)
-    - Missing file
-    - JSON decode errors
-    - Other unexpected errors
-
-    Globals Modified:
-    - APP_SETTINGS 
-    """
-    global APP_SETTINGS, JSON_Loaded_flag
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            settings = json.load(f)
-        
-        # Check the JSON version
-        if "VERSION" in settings:
-            json_version = settings["VERSION"]
-            if json_version != REQUIRED_JSON_VERSION:
-                JSON_Loaded_flag = "False - Version mismatch"
-                if "IGNORE_VERSION_ERROR" in settings and settings["IGNORE_VERSION_ERROR"]:
-                    print(f"[WARNING]: The JSON version ({json_version}) does not match the required version ({REQUIRED_JSON_VERSION}), but the error is ignored. The settings will not be loaded.")
-                else:
-                    print(f"[ERROR]: JSON version ({json_version}) does not match required version ({REQUIRED_JSON_VERSION}). Default settings will be applied.")
-                    messagebox.showerror("Error", f"[ERROR]: JSON version ({json_version}) does not match required version ({REQUIRED_JSON_VERSION}). Default settings will be applied.")
-                return
-        else:
-            print("[WARNING]: JSON version information missing. Default settings will be applied.")
-            return
-
-        # Merge application settings with existing ones
-        if "APP_SETTINGS" in settings:
-            APP_SETTINGS.update(settings["APP_SETTINGS"])
-            JSON_Loaded_flag = "True"
-
-        print("[INFO]: Loaded settings from file.")
-
-    except FileNotFoundError:
-        print(f"[WARNING]: File {file_path} not found. Using default settings.")
-        JSON_Loaded_flag = "False - File not found"
-    except json.JSONDecodeError as e:
-        print(f"[ERROR]: JSON decoding error: {e}")
-        print("Using default settings.")
-        JSON_Loaded_flag = "False - JSON decode error"
-    except Exception as e:
-        print(f"[ERROR]: Unexpected error: {e}")
-        JSON_Loaded_flag = "False - Unexpected error"
 
 def set_window_icon(app):
     """
@@ -152,16 +92,6 @@ def set_window_icon(app):
     if icon_loaded:
         app.root.wm_iconbitmap()
 
-# Loading settings from JSON file
-load_settings_from_json()
-
-if APP_SETTINGS["Language"] == "pl":
-    # Loads 'Polish' translations
-    from translation import TRANSLATIONS_PL as TRANSLATIONS
-else:
-    # Loads 'English' translations [Default when language is not specified or incorrect]
-    from translation import TRANSLATIONS_EN as TRANSLATIONS
-
 def change_ui_scale(scale=0):
     MIN_ZOOM = 0.6
     MAX_ZOOM = 3.0
@@ -177,56 +107,25 @@ def change_ui_scale(scale=0):
     ctk.set_window_scaling(APP_SETTINGS["ui_zoom_factor"])
     ctk.set_widget_scaling(APP_SETTINGS["ui_zoom_factor"])
 
-@lru_cache(maxsize=None)
-def t_path(path):
+# Loading settings from JSON file
+temp_status, _ = load_settings_from_json(
+    file_path=RESOURCE_FILE_PATHS["json_config"],
+    target_dict=APP_SETTINGS,
+    version_key="VERSION",
+    required_version=REQUIRED_JSON_VERSION,
+    ignore_version_error_key="IGNORE_VERSION_ERROR",
+    settings_key="APP_SETTINGS",
+    show_errors=True
+)
+JSON_Loaded_flag = temp_status
 
-    """
-    Retrieves a translation value from the TRANSLATIONS dictionary using a dot-separated path.
-    This is a helper function to easily access nested translation values.
-    Args:
-        path (str): Dot-separated path to the translation (e.g., "menubar.file.file")
-    Returns:
-        str: The translated string if found, or a placeholder string in format "[path]" if not found
-    Example:
-        >>> t_path("menubar.file.file")
-        "File"
-        >>> t_path("invalid.path")
-        "[invalid.path]"
-        
-    Note:
-        The function is a shortened version of get_translation_by_path (as suggested by the name)
-    """
-    keys = path.split(".")
-    value = TRANSLATIONS
-    try:
-        for key in keys:
-            value = value[key]
-        return value
-    except KeyError:
-        print(f"[WARNING] Translation not found for path: {path}")
-        return f"[{path}]"
+TRANSLATIONS = load_translations(APP_SETTINGS.get("Language", "en"))
+modules.translation_utils.TRANSLATIONS = TRANSLATIONS
 
 # ==========================================================================
 # Debugging functions
 
-def get_program_path(show_messagebox=False):
-    # Print the current working directory (for debug purposes)
-    print("\n=== Debug: Program Path ===")
-    print("Current program directory:", os.getcwd())
-    print(f"JSON file loaded? {JSON_Loaded_flag}")
-    print("Frozen? (PyInstaller)",getattr(sys, 'frozen', False))
-    print("Compiled? (Nuitka)", "__compiled__" in globals())
-    print("=== Debug: Program Path ===\n")
-    if show_messagebox:
-        messagebox.showinfo(
-            "Program Path", 
-            f"Current program directory: {os.getcwd()}\n\n"
-            f"JSON file loaded? - {JSON_Loaded_flag}\n"
-            f"Frozen? (PyInstaller) - {getattr(sys, 'frozen', False)}\n"
-            f"Compiled? (Nuitka) - {'__compiled__' in globals()}"
-            )
-
-get_program_path()
+get_program_path(show_messagebox=False, status_flag=JSON_Loaded_flag)
 
 def pprint_list_of_dicts(list_of_dicts, width=130):
     try:
@@ -317,6 +216,9 @@ class MainApp():
                 # Redirect stdout and stderr globally
                 sys.stdout = ConsoleRedirector(self.console_textbox)
                 sys.stderr = ConsoleRedirector(self.console_textbox)
+
+                print("Caution: When big files are loaded, the console may freeze for a moment.")
+                print("Console output redirected to the console window.")
 
                 self.console_window.protocol("WM_DELETE_WINDOW", console_close)
             except Exception as e:
