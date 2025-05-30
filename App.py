@@ -12,6 +12,7 @@ from modules.translation_utils import t_path, load_translations
 import modules.translation_utils
 from modules.utils import get_program_path, load_settings_from_json, set_app_icon
 from modules.gui_console import GUIConsole
+from modules.about_window import AboutWindow
 
 # temp
 from pprint import pprint
@@ -416,7 +417,7 @@ class MainApp():
         about_button_MenuBar = self.menu.add_cascade(t_path("menubar.about.about"))
         about_dropdown = CustomDropdownMenu(widget=about_button_MenuBar)
 
-        about_about_this_app_option = about_dropdown.add_option(option=t_path("menubar.about.about_this_app"),command=lambda: AboutWindow(root))
+        about_about_this_app_option = about_dropdown.add_option(option=t_path("menubar.about.about_this_app"),command=lambda: AboutWindow(root, APP_SETTINGS, APP_VERSION, t_path))
 
         # Debug menu
         debug_button_MenuBar = self.menu.add_cascade("Debug")
@@ -594,186 +595,6 @@ class MainApp():
             text=t_path('main_window.result_label.default'),
             font=("Arial", 19))
         self.result_label.pack(pady=(15,0))
-
-class AboutWindow(ctk.CTkToplevel):
-    def set_icon(self):
-        """Set AboutWindow icon with Windows workaround (uses set_app_icon from utils)."""
-        
-        if APP_SETTINGS["SetIcon"]:
-            from modules.utils import set_app_icon
-            set_app_icon(self)
-
-    def __init__(self, master):
-        super().__init__(master)
-        self.title(t_path("about_window.about_window_title"))
-        self.geometry("495x340")
-        self.resizable(True, True)
-        self.set_icon()
-
-        # Main container
-        self.main_container = ctk.CTkFrame(
-            self, 
-            border_width=1,
-        )
-        self.main_container.pack(padx=5, pady=5, fill="both", expand=True)
-        self.main_container.pack_propagate(False)
-        
-        # Content frame with two columns
-        self.content_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
-        self.content_frame.pack(padx=10, pady=10, fill="both", expand=True)
-        
-        # Left side: logo/image
-        self.left_panel = ctk.CTkFrame(self.content_frame, width=150, height=250, fg_color="transparent")
-        self.left_panel.grid(row=0, column=0, padx=(0, 15), pady=10, sticky="nsew")
-        
-        try:
-            app_icon_path = "Assets/Vocabulary-Practice-App/Icons/book_pink.png"
-            app_icon_image = Image.open(app_icon_path)
-            
-            self.app_icon = ctk.CTkImage(
-                light_image=app_icon_image,
-                dark_image=app_icon_image,
-                size=(110, 110)
-            )
-            
-            self.icon_label = ctk.CTkLabel(self.left_panel, image=self.app_icon, text="")
-            self.icon_label.pack(pady=10)
-            
-        except Exception as e:
-            print(f"Image loading error: {e}")
-            self.icon_label = ctk.CTkLabel(
-                self.left_panel, 
-                text="Logo", 
-                width=150, 
-                height=150, 
-                corner_radius=10, 
-                fg_color="#f0f0f0", 
-                text_color="#333"
-            )
-            self.icon_label.pack(pady=10)
-
-        # GitHub icon and link
-
-        self.github_profile_label = self._create_clickable_link(
-            " Nieznany237", 
-            "https://github.com/Nieznany237"
-        )
-
-        self.github_repo_label = self._create_clickable_link(
-            " GitHub Repository", 
-            "https://github.com/Nieznany237/Vocabulary-Practice-App"
-        )
-        '''
-        self.other_link_label = self._create_clickable_link(
-            " Placeholder", 
-            "https://example.com",
-            "OtherIconLight.png",  # Ścieżki do alternatywnych ikon
-            "OtherIconDark.png"
-        )
-        '''
-        # Right side: information
-        self.right_panel = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.right_panel.grid(row=0, column=1, padx=(10, 0), pady=10, sticky="nsew")
-        
-        # Header
-        self.title_label = ctk.CTkLabel(
-            self.right_panel, 
-            text=APP_SETTINGS["title"], 
-            font=("Arial", 18, "bold")
-        )
-        self.title_label.pack(pady=(0, 0), anchor="w")
-        
-        # Program information
-        program_info = f"""
-        {t_path("about_window.program_info_description.program_name")}: {APP_SETTINGS["title"]}
-        {t_path("about_window.program_info_description.version")}: {APP_VERSION["version"]}
-        {t_path("about_window.program_info_description.author")}: Niez | Nieznany237
-        {t_path("about_window.program_info_description.release_date")}: {APP_VERSION["release_date"]}
-        {t_path("about_window.program_info_description.first_release")}: 19.11.2024
-        {t_path("about_window.program_info_description.licence")}: MIT
-        
-        Python: {self.get_python_version()}
-        System: {self.get_system_info()}
-        
-        {t_path("about_window.program_info_description.description")}:
-        A simple and effective app for practicing
-        vocabulary in two languages
-        using custom word lists.
-        """
-        self.info_label = ctk.CTkLabel(
-            self.right_panel, 
-            font=("Arial", 14),
-            text=program_info,  
-            justify="left")
-        self.info_label.pack(pady=(0,0), anchor="w")
-    
-    def get_system_info(self):
-        """Returns operating system information with try-except protection"""
-        try:
-            system = platform.system()
-            version = ""
-            if system == "Windows":
-                version = platform.win32_ver()[1]
-            elif system == "Linux":
-                try:
-                    # For newer Linux systems
-                    version = platform.freedesktop_os_release().get('PRETTY_NAME', 'Linux')
-                except:
-                    # Fallback for older systems
-                    version = platform.linux_distribution()[0] or 'Linux'
-            elif system == "Darwin":
-                version = f"macOS {platform.mac_ver()[0]}"
-            else:
-                version = ""
-                
-            return f"{system} {version}".strip()
-            
-        except Exception as e:
-            print(f"Error getting system information: {e}")
-            return platform.system() or "Unknown system"
-    
-    def get_python_version(self):
-        """Returns Python version with try-except protection"""
-        try:
-            return sys.version.split()[0]
-        except Exception as e:
-            print(f"Error getting Python version: {e}")
-            return "Unknown Python version"
-    
-    def _create_clickable_link(self, text, url, icon_light_path="Assets/Vocabulary-Practice-App/Icons/GitHubV2Dark.png", icon_dark_path="Assets/Vocabulary-Practice-App/Icons/GitHubV2White.png"):
-        """Helper function to create clickable link label with optional icon"""
-        try:
-            icon_light = Image.open(icon_light_path)
-            icon_dark = Image.open(icon_dark_path)
-            icon = ctk.CTkImage(
-                light_image=icon_light,
-                dark_image=icon_dark,
-                size=(22, 22)
-            )
-            
-            label = ctk.CTkLabel(
-                self.left_panel,
-                text=text,
-                font=("Arial", 13, "bold"),
-                image=icon,
-                compound="left",
-                cursor="hand2",
-                text_color=("#E60000", "#db143c")
-                #("#1a73e8", "#8ab4f8") # Legacy
-            )
-        except Exception as e:
-            print(f"Icon loading error: {e}")
-            label = ctk.CTkLabel(
-                self.left_panel,
-                text=text,
-                font=("Arial", 13),
-                cursor="hand2",
-                text_color=("#E60000","#db143c")
-            )
-    
-        label.pack(padx=(0, 0), pady=(0, 0), anchor="w")
-        label.bind("<Button-1>", lambda e: webbrowser.open_new_tab(url))
-        return label
 
 root = ctk.CTk()
 app = MainApp(root)
