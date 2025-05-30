@@ -7,12 +7,12 @@ from tkinter import filedialog
 import sys
 import webbrowser
 import platform
-import json
 import difflib
 
 from modules.translation_utils import t_path, load_translations
 import modules.translation_utils
 from modules.utils import get_program_path, load_settings_from_json
+from modules.gui_console import GUIConsole
 
 # temp
 from pprint import pprint
@@ -147,106 +147,13 @@ def print_status():
     pprint_list_of_dicts(available_words, width=130)
     print("\n=== Debug: Vocabulary Status ===\n")
 
-class ConsoleRedirector:
-    """
-    Redirects console output to a CTkTextbox widget in a thread-safe, read-only manner.
-    """
-    def __init__(self, widget):
-        self.widget = widget
-
-    def write(self, text):
-        # Insert text in a thread-safe way and keep the textbox read-only
-        self.widget.configure(state="normal")
-        self.widget.insert(ctk.END, text)
-        self.widget.see(ctk.END)
-        self.widget.configure(state="disabled")
-
-    def flush(self):
-        pass  # For compatibility
-
 class MainApp():
     def __init__(self, root):
         # ==========================================================================
-
-        # Initialize the main application window
-        self._stdout_backup = sys.stdout
-        self._stderr_backup = sys.stderr
-
-        self.console_window = None
-        self.console_textbox = None
+        self.gui_console = GUIConsole(root)
 
         def open_console(self):
-            try:
-                if self.console_window is not None and self.console_window.winfo_exists():
-                    self.console_window.focus()
-                    print("Console window already open.")
-                    return
-                else:
-                    print("Opening console window... All event output will be redirected here.")
-
-                self.console_window = ctk.CTkToplevel(self.root)
-                self.console_window.title("Console Output")
-                self.console_window.geometry("600x400")
-
-                self.console_frame = ctk.CTkFrame(
-                    self.console_window,
-                    #border_width=1,
-                )
-                self.console_frame.pack(padx=5, pady=5, fill="both", expand=True)
-                # Add clear button
-                self.clear_console_button = ctk.CTkButton(
-                    self.console_frame,
-                    text="Clear",
-                    command=lambda: clear_console(),
-                    width=60,
-                )
-                self.clear_console_button.pack(padx=2, pady=(2, 0), anchor="ne")
-
-                self.console_textbox = ctk.CTkTextbox(
-                    master=self.console_frame,
-                    width=580,
-                    height=350,
-                    border_width=1,
-                    wrap=ctk.WORD,
-                    state="disabled",  # Start as read-only
-                )
-                self.console_textbox.pack(padx=2, pady=2, fill="both", expand=True)
-                self.console_textbox.configure(font=("Cascadia Code", 12))
-
-                # Redirect stdout and stderr globally
-                sys.stdout = ConsoleRedirector(self.console_textbox)
-                sys.stderr = ConsoleRedirector(self.console_textbox)
-
-                print("Caution: When big files are loaded, the console may freeze for a moment.")
-                print("Console output redirected to the console window.")
-
-                self.console_window.protocol("WM_DELETE_WINDOW", console_close)
-            except Exception as e:
-                print(f"[ERROR] Failed to open console window: {e}")
-
-        def clear_console():
-            if self.console_textbox is not None:
-                self.console_textbox.configure(state="normal")
-                self.console_textbox.delete("1.0", ctk.END)
-                self.console_textbox.configure(state="disabled")
-
-        def revert_console_output():
-            try:
-                sys.stdout = self._stdout_backup
-                sys.stderr = self._stderr_backup
-                print("Console output reverted to original stdout and stderr.")
-            except Exception as e:
-                print(f"[ERROR] Failed to revert console output: {e}")
-
-        def console_close():
-            try:
-                revert_console_output()
-                if self.console_window is not None:
-                    self.console_window.destroy()
-                print("Console closed..")
-            except Exception as e:
-                print(f"[ERROR] Failed to close console window: {e}")
-
+            self.gui_console.open()
         # ==========================================================================
 
         def load_words_from_file(file_path=None):
