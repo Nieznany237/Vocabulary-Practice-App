@@ -6,7 +6,7 @@ Reusable console output redirection and window for CustomTkinter-based apps.
 """
 import sys
 import customtkinter as ctk
-from modules.utils import set_app_icon 
+from modules.utils import set_app_icon
 __version__ = "1.1.0"
 
 class ConsoleRedirector:
@@ -45,10 +45,9 @@ class GUIConsole:
         self._stderr_backup = sys.stderr
 
     def set_icon(self, app_settings):
-        """Set AboutWindow icon with Windows workaround (uses set_app_icon from utils if available)."""
+        """Set AboutWindow icon with Windows workaround (uses set_app_icon from utils)."""
         if app_settings.get("SetIcon", False):
             try:
-                from modules.utils import set_app_icon
                 set_app_icon(self.console_window)
             except Exception as e:
                 print(f"[AboutWindow] set_app_icon failed: {e}")

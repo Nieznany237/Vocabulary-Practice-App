@@ -5,7 +5,7 @@
   "APP_SETTINGS": {
     "title": "Vocabulary Practice App",
     "window_size": "535x520",
-    "SetIcon": false,
+    "SetIcon": true,
     "resizable": [true, true],
     "Language": "en",
     "appearance_mode": "dark",

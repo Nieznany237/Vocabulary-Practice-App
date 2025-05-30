@@ -27,6 +27,7 @@ try:
 except ImportError:
     Image = None
 import customtkinter as ctk
+from modules.utils import set_app_icon
 
 class AboutWindow(ctk.CTkToplevel):
     def __init__(self, master, app_settings, app_version, t_path, icon_paths=None):
@@ -136,10 +137,9 @@ class AboutWindow(ctk.CTkToplevel):
         self.info_label.pack(pady=(0,0), anchor="w")
 
     def set_icon(self, app_settings):
-        """Set AboutWindow icon with Windows workaround (uses set_app_icon from utils if available)."""
+        """Set AboutWindow icon with Windows workaround (uses set_app_icon from utils)."""
         if app_settings.get("SetIcon", False):
             try:
-                from modules.utils import set_app_icon
                 set_app_icon(self)
             except Exception as e:
                 print(f"[AboutWindow] set_app_icon failed: {e}")

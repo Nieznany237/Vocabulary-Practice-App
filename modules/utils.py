@@ -17,16 +17,16 @@ def get_program_path(show_messagebox=False, status_flag=None):
     print("\n=== Debug: Program Path ===")
     print("Current program directory:", os.getcwd())
     if status_flag is not None:
-        print(f"Status flag: {status_flag}")
+        print(f"JSON status: {status_flag}")
     else:
-        print("Status flag: Not provided")
+        print("JSON status: Not provided")
     print("Frozen? (PyInstaller)", getattr(sys, 'frozen', False))
     print("Compiled? (Nuitka)", "__compiled__" in globals())
     print("=== Debug: Program Path ===\n")
     if show_messagebox:
         msg = f"Current program directory: {os.getcwd()}\n\n"
         if status_flag is not None:
-            msg += f"Status flag: {status_flag}\n"
+            msg += f"JSON status: {status_flag}\n"
         msg += f"Frozen? (PyInstaller) - {getattr(sys, 'frozen', False)}\n"
         msg += f"Compiled? (Nuitka) - {'__compiled__' in globals()}"
         messagebox.showinfo("Program Path", msg)
