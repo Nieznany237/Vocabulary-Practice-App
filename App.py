@@ -3,6 +3,7 @@ from CTkMenuBar import *
 import random
 from tkinter import filedialog
 import difflib
+from typing import List, Dict, Optional
 
 from modules.translation_utils import t_path, load_translations
 import modules.translation_utils
@@ -15,7 +16,7 @@ from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.4.0-DEV",
+    "version": "1.4.0",
     "release_date": "30.05.2025"
 }
 
@@ -64,15 +65,15 @@ def pprint_list_of_dicts(list_of_dicts, width=130):
         print(f"[ERROR] Failed to pretty-print list of dictionaries: {e}")
 
 class MainApp():
-    def __init__(self, root):
+    def __init__(self, root: ctk.CTk):
         # State variables
-        self.vocab_word_list = []
-        self.selected_word = None
-        self.selected_mode = "mixed"
-        self.hint_shown = False
-        self.available_words = []
-        self.blocked_lines = set()
-        self.current_mode = "mixed"
+        self.vocab_word_list: List[Dict[str, str | int]] = []
+        self.selected_word: Optional[Dict[str, str | int]] = None
+        self.selected_mode: str = "mixed"
+        self.hint_shown: bool = False
+        self.available_words: List[Dict[str, str | int]] = []
+        self.blocked_lines: set[int] = set()
+        self.current_mode: str = "mixed"
 
         # ==========================================================================
         self.gui_console = GUIConsole(root, APP_SETTINGS)
@@ -307,11 +308,12 @@ class MainApp():
     except:
         print(f"[ERROR]: Color theme {APP_SETTINGS['color_theme']} not found. Using default theme.")
         ctk.set_default_color_theme("blue")
+
     # Debug functions
-    def get_cache_info(self):
+    def get_cache_info(self) -> None:
         print(t_path.cache_info())
 
-    def print_status(self):
+    def print_status(self) -> None:
         print("\n=== Debug: Vocabulary Status ===")
         print(f"\nLoaded words: {len(self.vocab_word_list)}")
         print(f"Selected word: {self.selected_word}")
@@ -322,10 +324,10 @@ class MainApp():
         pprint_list_of_dicts(self.available_words, width=130)
         print("\n=== Debug: Vocabulary Status ===\n")
 
-    def open_console(self):
+    def open_console(self) -> None:
         self.gui_console.open()
 
-    def load_words_from_file(self, file_path=None):
+    def load_words_from_file(self, file_path: Optional[str] = None) -> List[Dict[str, str | int]]:
         """
         Reads a vocabulary file and returns a list of word pairs, ignoring the first line.
         Each line after the first is expected to be in the format "Left_Lang - Right_Lang".
@@ -338,15 +340,26 @@ class MainApp():
                 - "Right_Lang": The word in the right language.
                 - "line_number": The line number in the file (starting from 2).
         """
-        words_list = []
+        words_list: List[Dict[str, str | int]] = []
+        language_names = ("Left", "Right")
         if not file_path:
             return words_list
 
         try:
             with open(file_path, "r", encoding="utf-8") as file:
-                lines = file.readlines()
-
-                for line_number, line in enumerate(lines[1:], start=2):
+                # Read the first line for language names
+                first_line = file.readline()
+                if " - " in first_line:
+                    language_names = tuple(first_line.strip().split(" - "))
+                # Update radiobutton text immediately
+                self.radio_Left_Lang_to_Right_Lang.configure(
+                    text = f"{language_names[0]} ► {language_names[1]}"
+                )
+                self.radio_Right_Lang_to_Left_Lang.configure(
+                    text = f"{language_names[1]} ► {language_names[0]}"
+                )
+                # Read the rest of the file line by line
+                for line_number, line in enumerate(file, start=2):
                     if " - " in line:
                         Left_Lang, Right_Lang = line.strip().split(" - ")
                         if Left_Lang != Right_Lang:
@@ -357,12 +370,10 @@ class MainApp():
                             })
         except FileNotFoundError:
             print(f"File {file_path} not found.")
-        if file_path:
-            self.get_language_names(file_path)
-            pprint_list_of_dicts(words_list, width=130)
+        pprint_list_of_dicts(words_list, width=130)
         return words_list
 
-    def get_language_names(self, file_path):
+    def get_language_names(self, file_path: Optional[str]) -> tuple[str, str]:
         """Returns the language names from the first line of the file and updates the text of the radiobuttons."""
         language_names = ("Left", "Right") 
 
@@ -385,7 +396,7 @@ class MainApp():
 
         return language_names
 
-    def pick_new_word(self):
+    def pick_new_word(self) -> None:
         """
         Selects a new word for the vocabulary practice session according to the current mode and blocklist settings.
         This function:
@@ -448,7 +459,7 @@ class MainApp():
         self.entry.delete(0, ctk.END)
         self.result_label.configure(text="")
 
-    def set_buttons_state(self, state):
+    def set_buttons_state(self, state: str) -> None:
         """Sets the status of all buttons and radiobuttons."""
         self.check_button.configure(state=state)
         self.hint_button.configure(state=state)
@@ -462,15 +473,15 @@ class MainApp():
         # MenuBar
         self.file_clear_blocklist_option.configure(state=state)
 
-    def disable_all_buttons(self):
+    def disable_all_buttons(self) -> None:
         """Deactivates all buttons and radiobuttons."""
         self.set_buttons_state("disabled")
 
-    def enable_all_buttons(self):
+    def enable_all_buttons(self) -> None:
         """Activates all buttons and radiobuttons."""
         self.set_buttons_state("normal")
 
-    def calculate_accuracy(self, correct_answer, user_input):
+    def calculate_accuracy(self, correct_answer: str, user_input: str) -> float:
         """
         Calculates the percentage match between the correct answer and the user's answer.
         """
@@ -480,7 +491,7 @@ class MainApp():
         ratio = difflib.SequenceMatcher(None, correct_answer, user_input).ratio()
         return ratio * 100
 
-    def show_hint(self):
+    def show_hint(self) -> None:
         """Reveals the first letters (3) of the correct translation.""" 
         if not self.hint_shown:
             if self.current_mode == "Left_Lang_to_Right_Lang":
@@ -490,7 +501,7 @@ class MainApp():
             self.result_label.configure(text=f"{t_path('main_window.result_label.hint_text')} {hint}")
             self.hint_shown = True
 
-    def check_answer(self):
+    def check_answer(self) -> None:
         """Checks the correctness of the entered translation."""
         if not self.available_words:
             return print("Action blocked - [CheckAnswer]")
@@ -515,18 +526,18 @@ class MainApp():
         self.result_label.configure(
             text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct_answer}")
 
-    def skip_word(self):
+    def skip_word(self) -> None:
         if not self.vocab_word_list:
             return print("Action blocked - [SkipWord]")
         """Skips the current word and moves on to the next one.""" 
         self.pick_new_word()
 
-    def set_mode(self, new_mode):
+    def set_mode(self, new_mode: str) -> None:
         """Changes the application mode.""" 
         self.selected_mode = new_mode
         self.pick_new_word()
 
-    def open_file_dialog(self):
+    def open_file_dialog(self) -> None:
         """Opens the file explorer and loads the selected file."""
         file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
         if file_path:
@@ -539,14 +550,14 @@ class MainApp():
                 print("[open_file_dialog] - File is empty or invalid!")
                 self.disable_all_buttons()
 
-    def toggle_block_repeated(self):
+    def toggle_block_repeated(self) -> None:
         """Enables or disables the blocking of repeated questions."""
         if self.block_repeated_questions.get():
             print("Blocking repeated questions enabled.")
         else:
             print("Blocking repeated questions disabled.")
 
-    def clear_blocked_lines(self):
+    def clear_blocked_lines(self) -> None:
         """Clears the list of blocked line numbers."""
         if not self.vocab_word_list:
             return print("Action blocked - [ClearBlockList]")
@@ -560,7 +571,7 @@ class MainApp():
         self.hint_button.configure(state="normal")
         self.skip_button.configure(state="normal")
 
-    def change_ui_scale(self, scale=0):
+    def change_ui_scale(self, scale: float = 0) -> None:
         MIN_ZOOM = 0.6
         MAX_ZOOM = 3.0
         new_zoom = round(APP_SETTINGS["ui_zoom_factor"] + scale, 3)
@@ -575,7 +586,7 @@ class MainApp():
         ctk.set_window_scaling(APP_SETTINGS["ui_zoom_factor"])
         ctk.set_widget_scaling(APP_SETTINGS["ui_zoom_factor"])
 
-    def set_app_appearance_mode(self, theme):
+    def set_app_appearance_mode(self, theme: str) -> None:
         ctk.set_appearance_mode(theme)
 
         if APP_SETTINGS["SetIcon"]:
