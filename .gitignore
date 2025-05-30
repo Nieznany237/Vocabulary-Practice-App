@@ -6,3 +6,4 @@
 /App.onefile-build
 /output
 App.exe
+/modules/__pycache__
