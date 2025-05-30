@@ -54,7 +54,7 @@ class GUIConsole:
         self.console_window = ctk.CTkToplevel(self.root)
         self.console_window.title(self.title)
         self.console_window.geometry(f"{self.width}x{self.height}")
-
+        
         self.console_frame = ctk.CTkFrame(self.console_window)
         self.console_frame.pack(padx=5, pady=5, fill="both", expand=True)
 
@@ -79,7 +79,6 @@ class GUIConsole:
 
         sys.stdout = ConsoleRedirector(self.console_textbox)
         sys.stderr = ConsoleRedirector(self.console_textbox)
-
         print("Caution: When big files are loaded, the console may freeze for a moment.")
         print("Console output redirected to the console window.")
 

@@ -1,7 +1,6 @@
 import customtkinter as ctk
 from CTkMenuBar import *
-import os
-from PIL import Image, ImageTk
+from PIL import Image
 import random
 from tkinter import filedialog
 import sys
@@ -11,7 +10,7 @@ import difflib
 
 from modules.translation_utils import t_path, load_translations
 import modules.translation_utils
-from modules.utils import get_program_path, load_settings_from_json
+from modules.utils import get_program_path, load_settings_from_json, set_app_icon
 from modules.gui_console import GUIConsole
 
 # temp
@@ -50,47 +49,6 @@ JSON_Loaded_flag = "False - Unknown"  # Flag to check if JSON settings were load
 
 # Lista blokowanych numerów linii
 blocked_lines = set()
-
-def set_window_icon(app):
-    """
-    Function: set_window_icon(app)
-
-    Sets the application window icon based on the current system appearance mode (dark/light).
-    The function automatically selects the appropriate version of the icon (white for dark mode, dark for light mode).
-
-    Error Handling:
-    - Prints warning if icon file is not found
-    - Prints error if icon loading fails
-    - Silently continues if icon cannot be set (The default CTk icon will be used instead)
-    """
-
-    # Determine the appearance mode of the application
-    appearance_mode = ctk.get_appearance_mode()
-    
-    # Selecting the appropriate icon
-    if appearance_mode == "Dark":
-        icon_path = "Assets/Vocabulary-Practice-App/Icons/book_pink.png"
-    else:
-        icon_path = "Assets/Vocabulary-Practice-App/Icons/book_pink.png"
-    
-    # Flag to check if the icon has been loaded
-    icon_loaded = False
-    
-    # Checking if the icon file exists
-    if os.path.exists(icon_path):
-        try:
-            icon_image = Image.open(icon_path)
-            icon_photo = ImageTk.PhotoImage(icon_image)
-            app.root.iconphoto(False, icon_photo)  # Setting the icon on the main window
-            icon_loaded = True
-        except Exception as e:
-            print(f"[ERROR] Failed to load icon: {e}")
-    else:
-        print(f"[WARNING] File {icon_path} has not been found.")
-    
-    # Set icon only if loaded correctly
-    if icon_loaded:
-        app.root.wm_iconbitmap()
 
 def change_ui_scale(scale=0):
     MIN_ZOOM = 0.6
@@ -404,7 +362,7 @@ class MainApp():
             ctk.set_appearance_mode(theme)
 
             if APP_SETTINGS["SetIcon"]:
-                set_window_icon(self)
+                set_app_icon(self)
 
         ctk.set_appearance_mode(APP_SETTINGS["appearance_mode"])
         try:
@@ -429,7 +387,7 @@ class MainApp():
 
         # Setting the app icon
         if APP_SETTINGS["SetIcon"]:
-            set_window_icon(self)
+            set_app_icon(self)
 
         self.menu = CTkMenuBar(root, padx=0)
         #* https://github.com/Akascape/CTkMenuBar?tab=readme-ov-file#methods-1
@@ -638,11 +596,19 @@ class MainApp():
         self.result_label.pack(pady=(15,0))
 
 class AboutWindow(ctk.CTkToplevel):
+    def set_icon(self):
+        """Set AboutWindow icon with Windows workaround (uses set_app_icon from utils)."""
+        
+        if APP_SETTINGS["SetIcon"]:
+            from modules.utils import set_app_icon
+            set_app_icon(self)
+
     def __init__(self, master):
         super().__init__(master)
         self.title(t_path("about_window.about_window_title"))
         self.geometry("495x340")
         self.resizable(True, True)
+        self.set_icon()
 
         # Main container
         self.main_container = ctk.CTkFrame(

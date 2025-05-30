@@ -2,9 +2,13 @@ import os
 import sys
 import json
 from tkinter import messagebox
+from PIL import Image, ImageTk
+import platform
+import customtkinter as ctk
 
 def get_program_path(show_messagebox=False, status_flag=None):
     """
+    v1.0.1 (2025-05-30)
     Prints and optionally shows a messagebox with debug info about the current program path and environment.
     Args:
         show_messagebox (bool): If True, shows a messagebox with the info.
@@ -27,6 +31,7 @@ def get_program_path(show_messagebox=False, status_flag=None):
 
 def load_settings_from_json(file_path, target_dict=None, version_key="VERSION", required_version=None, ignore_version_error_key="IGNORE_VERSION_ERROR", settings_key="APP_SETTINGS", show_errors=True):
     """
+    v1.0.2 (2025-05-30)
     Loads settings from a JSON file and updates a target dictionary (if provided).
     Args:
         file_path (str): Path to the JSON file.
@@ -89,3 +94,38 @@ def load_settings_from_json(file_path, target_dict=None, version_key="VERSION", 
             print(f"[ERROR]: Unexpected error: {e}")
         status_flag = "False - Unexpected error"
     return status_flag, target_dict if target_dict is not None else None
+
+def set_app_icon(app, icon_dark_path="Assets/Vocabulary-Practice-App/Icons/book_pink.png", icon_light_path="Assets/Vocabulary-Practice-App/Icons/book_pink.png"):
+    """
+    v1.1.1 (2025-05-30)
+    Sets the application window icon based on the current system appearance mode (dark/light).
+    Automatically selects the appropriate icon version. On Windows, works around CustomTkinter bug by resetting icon after 200ms.
+    Args:
+        app: The application or window instance. If it has .root, uses app.root, else uses app itself.
+        icon_dark_path (str): Path to the icon for dark mode
+        icon_light_path (str): Path to the icon for light mode
+    ! https://github.com/TomSchimansky/CustomTkinter/issues/1163
+    """
+    appearance_mode = ctk.get_appearance_mode()
+    icon_path = icon_dark_path if appearance_mode == "Dark" else icon_light_path
+    icon_loaded = False
+    # Use .root if present, else use app itself
+    window = getattr(app, 'root', app)
+    if os.path.exists(icon_path):
+        try:
+            icon_image = Image.open(icon_path)
+            icon_photo = ImageTk.PhotoImage(icon_image)
+            window.iconphoto(False, icon_photo)
+            icon_loaded = True
+        except Exception as e:
+            print(f"[ERROR] Failed to load icon: {e}")
+    else:
+        print(f"[WARNING] File {icon_path} has not been found.")
+    # Workaround for CustomTkinter Windows bug
+    if icon_loaded and platform.system().lower().startswith("win"):
+        def reset_icon():
+            try:
+                window.iconphoto(False, icon_photo)
+            except Exception as e:
+                print(f"[ERROR] Failed to reset icon after delay: {e}")
+        window.after(200, reset_icon)
