@@ -328,6 +328,8 @@ class MainApp():
         if self.block_repeated_questions.get():
             remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
             print(f"Words remaining (not repeated): {remaining}")
+        if hasattr(self, 'failed_lines') and self.failed_lines:
+            print(f"Failed to load lines: {self.failed_lines}")
         print(f"Selected word: {self.selected_word}")
         print(f"Selected mode: {self.selected_mode}")
         print(f"Hint shown: {self.hint_shown}")
@@ -352,6 +354,7 @@ class MainApp():
         Reads a vocabulary file and returns a list of word pairs, ignoring the first line.
         Each line after the first is expected to be in the format "Left_Lang - Right_Lang".
         Lines where the left and right words are identical are skipped.
+        Tracks failed lines (bad format, not comment/empty).
         Args:
             file_path (str, optional): Path to the vocabulary file. Defaults to None.
         Returns:
@@ -362,7 +365,9 @@ class MainApp():
         """
         words_list: List[Dict[str, str | int]] = []
         language_names = ("Left", "Right")
+        self.failed_lines = []  # Track failed lines for status/debug
         if not file_path:
+            self.failed_lines = []
             return words_list
 
         try:
@@ -380,16 +385,25 @@ class MainApp():
                 )
                 # Read the rest of the file line by line
                 for line_number, line in enumerate(file, start=2):
-                    if " - " in line:
-                        Left_Lang, Right_Lang = line.strip().split(" - ")
-                        if Left_Lang != Right_Lang:
-                            words_list.append({
-                                "Left_Lang": Left_Lang,
-                                "Right_Lang": Right_Lang,
-                                "line_number": line_number
-                            })
+                    line_strip = line.strip()
+                    if not line_strip or line_strip.startswith('#'):
+                        continue  # skip comments and empty lines
+                    if " - " in line_strip:
+                        try:
+                            Left_Lang, Right_Lang = line_strip.split(" - ")
+                            if Left_Lang != Right_Lang:
+                                words_list.append({
+                                    "Left_Lang": Left_Lang,
+                                    "Right_Lang": Right_Lang,
+                                    "line_number": line_number
+                                })
+                        except Exception:
+                            self.failed_lines.append(line_number)
+                    else:
+                        self.failed_lines.append(line_number)
         except FileNotFoundError:
             print(f"File {file_path} not found.")
+            self.failed_lines = []
         pprint_list_of_dicts(words_list, width=130)
         return words_list
 
