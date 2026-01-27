@@ -16,8 +16,8 @@ from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.4.0",
-    "release_date": "30.05.2025"
+    "version": "1.4.1",
+    "release_date": "27.01.2026"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -301,6 +301,15 @@ class MainApp():
             text=t_path('main_window.result_label.default'),
             font=("Arial", 19))
         self.result_label.pack(pady=(15,0))
+
+        # Words info label (shows loaded/remaining words)
+        self.words_info_label = ctk.CTkLabel(
+            self.main_frame,
+            text="",
+            font=("Arial", 13, "italic"),
+            text_color="gray"
+        )
+        self.words_info_label.pack(pady=(2, 0))
         
     ctk.set_appearance_mode(APP_SETTINGS["appearance_mode"])
     try:
@@ -316,6 +325,9 @@ class MainApp():
     def print_status(self) -> None:
         print("\n=== Debug: Vocabulary Status ===")
         print(f"\nLoaded words: {len(self.vocab_word_list)}")
+        if self.block_repeated_questions.get():
+            remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
+            print(f"Words remaining (not repeated): {remaining}")
         print(f"Selected word: {self.selected_word}")
         print(f"Selected mode: {self.selected_mode}")
         print(f"Hint shown: {self.hint_shown}")
@@ -323,6 +335,14 @@ class MainApp():
         print(f"Blocked lines: {self.blocked_lines}\n")
         pprint_list_of_dicts(self.available_words, width=130)
         print("\n=== Debug: Vocabulary Status ===\n")
+
+    def update_words_info_label(self):
+        loaded = len(self.vocab_word_list)
+        if self.block_repeated_questions.get():
+            remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
+            self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: {remaining}")
+        else:
+            self.words_info_label.configure(text=f"Loaded: {loaded}")
 
     def open_console(self) -> None:
         self.gui_console.open()
@@ -412,6 +432,7 @@ class MainApp():
         if not self.vocab_word_list:
             # Brak załadowanych słówek!
             self.question_label.configure(text=t_path("main_window.question_label.Not_loaded"))
+            self.update_words_info_label()
             return
 
         self.hint_shown = False
@@ -427,7 +448,7 @@ class MainApp():
         if not self.available_words:
             # Brak dostępnych słówek do wyświetlenia!
             self.question_label.configure(text=t_path("main_window.question_label.No_words"))
-
+            self.update_words_info_label()
             self.check_button.configure(state="disabled")
             self.hint_button.configure(state="disabled")
             self.skip_button.configure(state="disabled")
@@ -438,6 +459,8 @@ class MainApp():
         # Dodaj numer linii do blokady
         if self.block_repeated_questions.get():
             self.blocked_lines.add(self.selected_word["line_number"])
+
+        self.update_words_info_label()
 
         question_text = self.selected_word["Left_Lang"] if self.selected_mode == "Left_Lang_to_Right_Lang" else self.selected_word["Right_Lang"]
 
@@ -542,6 +565,7 @@ class MainApp():
         file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
         if file_path:
             self.vocab_word_list = self.load_words_from_file(file_path)
+            self.update_words_info_label()
             if self.vocab_word_list:
                 self.enable_all_buttons()
                 self.clear_blocked_lines()
@@ -565,7 +589,7 @@ class MainApp():
         print(f"\nBlocked lines: {self.blocked_lines}")
         self.blocked_lines.clear()
         print("Block list cleared.")
-
+        self.update_words_info_label()
         self.skip_word()
         self.check_button.configure(state="normal")
         self.hint_button.configure(state="normal")
