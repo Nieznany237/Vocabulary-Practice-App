@@ -119,6 +119,18 @@ class MainApp():
         self.appearance_zoom_in_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_in"),command=lambda: self.change_ui_scale(0.1))
         self.appearance_zoom_out_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_out"),command=lambda: self.change_ui_scale(-0.1))
 
+        # Settings menu
+        self.settings_button_MenuBar = self.menu.add_cascade("Settings")
+        self.settings_dropdown = CustomDropdownMenu(widget=self.settings_button_MenuBar)
+
+        self.context_enabled = ctk.BooleanVar(value=True)
+        self.context_enabled_checkbox = ctk.CTkCheckBox(
+            self.settings_dropdown,
+            text="Enable Context Display",
+            variable=self.context_enabled
+        )
+        self.context_enabled_checkbox.pack(padx=5, pady=5)
+
         # About menu
         self.about_button_MenuBar = self.menu.add_cascade(t_path("menubar.about.about"))
         self.about_dropdown = CustomDropdownMenu(widget=self.about_button_MenuBar)
@@ -506,15 +518,18 @@ class MainApp():
 
         # Podaj tłumaczenie słowa:
         self.question_label.configure(text=f"{t_path('main_window.question_label.TranslateIt')} {question_text}")
-        # Show context if available
-        context = self.selected_word.get('context')
-        if context:
-            self.context_label.configure(text=f"Context: {context}")
-        else:
+        # Show context if enabled and available
+        if hasattr(self, 'context_enabled') and not self.context_enabled.get():
             self.context_label.configure(text="")
+        else:
+            context = self.selected_word.get('context')
+            if context:
+                self.context_label.configure(text=f"Context: {context}")
+            else:
+                self.context_label.configure(text="")
         self.line_info_label.configure(text=f"{t_path('main_window.line_info_label')} {self.selected_word['line_number']}", text_color="gray")
         self.entry.delete(0, ctk.END)
-        self.result_label.configure(text="")
+        self.result_label.configure(text="\n")
 
     def set_buttons_state(self, state: str) -> None:
         """Sets the status of all buttons and radiobuttons."""
