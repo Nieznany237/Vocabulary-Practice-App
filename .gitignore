@@ -5,5 +5,5 @@
 /App.dist
 /App.onefile-build
 /output
-App.exe
+*.exe
 /modules/__pycache__

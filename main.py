@@ -16,8 +16,8 @@ from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.4.1",
-    "release_date": "27.01.2026"
+    "version": "1.5.0 dev",
+    "release_date": "28.01.2026"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -134,6 +134,7 @@ class MainApp():
         self.debug_print_status_option = self.debug_dropdown.add_option(option="Print Vocabulary Status",command=lambda: self.print_status())
         self.debug_dropdown.add_separator()
         self.debug_open_console_option = self.debug_dropdown.add_option(option="Open Console Output",command=lambda: self.open_console())
+
         # Main Frame
         self.main_frame = ctk.CTkFrame(
             root, 
@@ -149,14 +150,23 @@ class MainApp():
             text=t_path("main_window.question_label.default"),
             font=("Arial", 20, "bold"),
             )
-        self.question_label.pack(pady=10)
+        self.question_label.pack(pady=(10, 5))
+
+        # Context label (for group context)
+        self.context_label = ctk.CTkLabel(
+            self.main_frame,
+            text="Context: ",
+            font=("Arial", 15, "italic"),
+            text_color="#888888"
+        )
+        self.context_label.pack(pady=(0, 0))
 
         # Line information label
         self.line_info_label = ctk.CTkLabel(
             self.main_frame, 
             text=t_path("main_window.line_info_label"), # Dane pobrane z linijki:
             font=("Arial", 14)
-            )
+        )
         self.line_info_label.pack(pady=0)
 
         # Field to enter the translation
@@ -351,8 +361,9 @@ class MainApp():
 
     def load_words_from_file(self, file_path: Optional[str] = None) -> List[Dict[str, str | int]]:
         """
-        Reads a vocabulary file and returns a list of word pairs, ignoring the first line.
+        Reads a vocabulary file and returns a list of word pairs, supporting context grouping.
         Each line after the first is expected to be in the format "Left_Lang - Right_Lang".
+        Context is set by lines in the form $ context $ and applies to following words until next context or EOF.
         Lines where the left and right words are identical are skipped.
         Tracks failed lines (bad format, not comment/empty).
         Args:
@@ -362,8 +373,9 @@ class MainApp():
                 - "Left_Lang": The word in the left language.
                 - "Right_Lang": The word in the right language.
                 - "line_number": The line number in the file (starting from 2).
+                - "context": The context/group string, or None if not set.
         """
-        words_list: List[Dict[str, str | int]] = []
+        words_list: List[Dict[str, str | int | None]] = []
         language_names = ("Left", "Right")
         self.failed_lines = []  # Track failed lines for status/debug
         if not file_path:
@@ -384,18 +396,25 @@ class MainApp():
                     text = f"{language_names[1]} ► {language_names[0]}"
                 )
                 # Read the rest of the file line by line
+                current_context = None
                 for line_number, line in enumerate(file, start=2):
                     line_strip = line.strip()
                     if not line_strip or line_strip.startswith('#'):
                         continue  # skip comments and empty lines
+                    # Detect context line: $ ... $
+                    if line_strip.startswith('$') and line_strip.endswith('$') and len(line_strip) > 2:
+                        current_context = line_strip[1:-1].strip()
+                        continue
                     if " - " in line_strip:
                         try:
                             Left_Lang, Right_Lang = line_strip.split(" - ")
                             if Left_Lang != Right_Lang:
+                                # Always assign the current context (even if None)
                                 words_list.append({
                                     "Left_Lang": Left_Lang,
                                     "Right_Lang": Right_Lang,
-                                    "line_number": line_number
+                                    "line_number": line_number,
+                                    "context": current_context if current_context is not None else None
                                 })
                         except Exception:
                             self.failed_lines.append(line_number)
@@ -433,19 +452,12 @@ class MainApp():
     def pick_new_word(self) -> None:
         """
         Selects a new word for the vocabulary practice session according to the current mode and blocklist settings.
-        This function:
-        - Checks if any words are loaded; if not, updates the UI to indicate this and returns.
-        - Resets the hint display state.
-        - Filters available words based on whether repeated questions are blocked.
-        - If no words are available after filtering, updates the UI and disables relevant buttons.
-        - Randomly selects a word from the available pool.
-        - If blocking repeated questions, adds the selected word's line number to the blocklist.
-        - Determines the question text based on the current mode (left-to-right, right-to-left, or mixed).
-        - Updates the UI with the new question, line info, and resets input/result fields.
+        Displays context if available.
         """
         if not self.vocab_word_list:
             # Brak załadowanych słówek!
             self.question_label.configure(text=t_path("main_window.question_label.Not_loaded"))
+            self.context_label.configure(text="Context: N/A")
             self.update_words_info_label()
             return
 
@@ -462,6 +474,7 @@ class MainApp():
         if not self.available_words:
             # Brak dostępnych słówek do wyświetlenia!
             self.question_label.configure(text=t_path("main_window.question_label.No_words"))
+            self.context_label.configure(text="")
             self.update_words_info_label()
             self.check_button.configure(state="disabled")
             self.hint_button.configure(state="disabled")
@@ -489,9 +502,16 @@ class MainApp():
         print("Showing question:", question_text)
         print(f"Line number: {self.selected_word['line_number']}")
         print(f"Mode: {self.current_mode}")
+        print(f"Context: {self.selected_word.get('context')}")
 
         # Podaj tłumaczenie słowa:
         self.question_label.configure(text=f"{t_path('main_window.question_label.TranslateIt')} {question_text}")
+        # Show context if available
+        context = self.selected_word.get('context')
+        if context:
+            self.context_label.configure(text=f"Context: {context}")
+        else:
+            self.context_label.configure(text="")
         self.line_info_label.configure(text=f"{t_path('main_window.line_info_label')} {self.selected_word['line_number']}", text_color="gray")
         self.entry.delete(0, ctk.END)
         self.result_label.configure(text="")
