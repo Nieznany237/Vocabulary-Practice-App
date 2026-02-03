@@ -298,8 +298,8 @@ class MainApp():
         self.radio_Right_Lang_to_Left_Lang.pack(side="left", padx=(5, 5), pady=(10, 10))
         self.radio_mixed.pack(side="left", padx=(5, 10), pady=(10, 10))
 
-        # flag
-        self.block_repeated_questions = ctk.BooleanVar(value=False)
+        # Repeat blocking mode flag
+        self.block_repeat_mode = ctk.BooleanVar(value=False)
 
         # frame for buttons and checkbox
         self.bottom_controls_frame = ctk.CTkFrame(self.main_frame, border_width=1)
@@ -313,7 +313,7 @@ class MainApp():
         )
         self.file_button.grid(row=0, column=0, padx=(5,3), pady=5, sticky="w")
 
-        # Buton to clear the block list
+        # Button to clear the block list
         self.clear_button = ctk.CTkButton(
             self.bottom_controls_frame,
             text=t_path('main_window.buttons.clear_button'),
@@ -322,15 +322,15 @@ class MainApp():
         )
         self.clear_button.grid(row=0, column=1, padx=(0,5), pady=5, sticky="e")
 
-        # Checkbox to block repeated questions
-        self.checkbox = ctk.CTkCheckBox(
+        # Checkbox to enable/disable repeat blocking mode
+        self.block_repeat_checkbox = ctk.CTkCheckBox(
             self.bottom_controls_frame,
             border_width=2,
             text=t_path('main_window.checkbox.block_list'),
-            variable=self.block_repeated_questions,
-            command=lambda: self.toggle_block_repeated()
+            variable=self.block_repeat_mode,
+            command=lambda: self.toggle_block_repeat_mode()
         )
-        self.checkbox.grid(row=1, column=0, columnspan=2, pady=4)
+        self.block_repeat_checkbox.grid(row=1, column=0, columnspan=2, pady=4)
 
         # Result label
         self.result_label = ctk.CTkLabel(
@@ -379,22 +379,22 @@ class MainApp():
         loaded = len(self.vocab_word_list)
         show_low_acc = self.enable_low_accuracy_mode.get()
         low_acc_count = len(self.low_accuracy_word_list)
-        block_repeated = self.block_repeated_questions.get()
+        block_repeat = self.block_repeat_mode.get()
         # If in low accuracy mode, force remaining to 0
         if self.low_accuracy_mode:
-            if show_low_acc and block_repeated:
+            if show_low_acc and block_repeat:
                 self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: 0 | Low accuracy: {low_acc_count}")
             else:
                 self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: 0")
         else:
-            if block_repeated:
+            if block_repeat:
                 remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
                 if show_low_acc:
                     self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: {remaining} | Low accuracy: {low_acc_count}")
                 else:
                     self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: {remaining}")
             else:
-                # If low accuracy mode is enabled but block_repeated is off, only show Loaded
+                # If low accuracy mode is enabled but block_repeat is off, only show Loaded
                 self.words_info_label.configure(text=f"Loaded: {loaded}")
 
     def open_console(self) -> None:
@@ -507,7 +507,7 @@ class MainApp():
         # If not in low accuracy mode, use main list
         if not self.low_accuracy_mode:
             # Filter words by blocklist
-            if not self.block_repeated_questions.get():
+            if not self.block_repeat_mode.get():
                 self.available_words = self.vocab_word_list
             else:
                 self.available_words = [
@@ -515,7 +515,7 @@ class MainApp():
                 ]
 
             # If main list is exhausted and low accuracy mode is enabled, switch to low accuracy mode
-            if not self.available_words and self.enable_low_accuracy_mode.get() and self.block_repeated_questions.get() and self.low_accuracy_word_list:
+            if not self.available_words and self.enable_low_accuracy_mode.get() and self.block_repeat_mode.get() and self.low_accuracy_word_list:
                 self.low_accuracy_mode = True
                 self.blocked_lines.clear()
                 self.available_words = self.low_accuracy_word_list.copy()
@@ -540,7 +540,7 @@ class MainApp():
         self.selected_word = random.choice(self.available_words)
 
         # Dodaj numer linii do blokady
-        if self.block_repeated_questions.get():
+        if self.block_repeat_mode.get():
             self.blocked_lines.add(self.selected_word["line_number"])
 
         self.update_words_info_label()
@@ -643,7 +643,7 @@ class MainApp():
             text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct_answer}")
 
         # If in main mode, and accuracy < 90%, add to low_accuracy_word_list if not already present
-        if not self.low_accuracy_mode and self.enable_low_accuracy_mode.get() and self.block_repeated_questions.get():
+        if not self.low_accuracy_mode and self.enable_low_accuracy_mode.get() and self.block_repeat_mode.get():
             if accuracy < 90:
                 # Use line_number as unique identifier
                 if not any(word["line_number"] == self.selected_word["line_number"] for word in self.low_accuracy_word_list):
@@ -674,12 +674,12 @@ class MainApp():
                 print("[open_file_dialog] - File is empty or invalid!")
                 self.disable_all_buttons()
 
-    def toggle_block_repeated(self) -> None:
-        """Enables or disables the blocking of repeated questions."""
-        if self.block_repeated_questions.get():
-            print("Blocking repeated questions enabled.")
+    def toggle_block_repeat_mode(self) -> None:
+        """Enables or disables the repeat blocking mode."""
+        if self.block_repeat_mode.get():
+            print("Repeat blocking mode enabled.")
         else:
-            print("Blocking repeated questions disabled.")
+            print("Repeat blocking mode disabled.")
 
     def clear_blocked_lines(self) -> None:
         """Clears the list of blocked line numbers."""
