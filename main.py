@@ -362,7 +362,7 @@ class MainApp():
     def print_status(self) -> None:
         print("\n=== Debug: Vocabulary Status ===")
         print(f"\nLoaded words: {len(self.vocab_word_list)}")
-        if self.block_repeated_questions.get():
+        if self.block_repeat_mode.get():
             remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
             print(f"Words remaining (not repeated): {remaining}")
         if hasattr(self, 'failed_lines') and self.failed_lines:
