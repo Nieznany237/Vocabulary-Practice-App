@@ -68,12 +68,15 @@ class MainApp():
     def __init__(self, root: ctk.CTk):
         # State variables
         self.vocab_word_list: List[Dict[str, str | int]] = []
+        self.low_accuracy_word_list: List[Dict[str, str | int]] = []  # Words with <90% accuracy
         self.selected_word: Optional[Dict[str, str | int]] = None
         self.selected_mode: str = "mixed"
         self.hint_shown: bool = False
         self.available_words: List[Dict[str, str | int]] = []
         self.blocked_lines: set[int] = set()
         self.current_mode: str = "mixed"
+
+        self.low_accuracy_mode: bool = False  # Track if we're in low accuracy mode
 
         # ==========================================================================
         self.gui_console = GUIConsole(root, APP_SETTINGS)
@@ -102,7 +105,7 @@ class MainApp():
         # Sekcja File
         # File menu
         self.file_button_MenuBar = self.menu.add_cascade(t_path("menubar.file.file"))
-        self.file_dropdown = CustomDropdownMenu(widget=self.file_button_MenuBar)
+        self.file_dropdown = CustomDropdownMenu(widget=self.file_button_MenuBar, font=("Arial", 13))
 
         self.file_load_option = self.file_dropdown.add_option(option=f"{t_path('menubar.file.load_file'):<26} [Ctrl+O]",command=lambda: self.open_file_dialog())
         self.file_clear_blocklist_option = self.file_dropdown.add_option(option=f"{t_path('main_window.buttons.clear_button'):<25} [Ctrl+C]",command=lambda: self.clear_blocked_lines(), state="disabled")
@@ -111,7 +114,7 @@ class MainApp():
 
         # Appearance menu
         self.appearance_button_MenuBar = self.menu.add_cascade(t_path("menubar.appearance.appearance"))
-        self.appearance_dropdown = CustomDropdownMenu(widget=self.appearance_button_MenuBar)
+        self.appearance_dropdown = CustomDropdownMenu(widget=self.appearance_button_MenuBar, font=("Arial", 13))
 
         self.appearance_dark_mode_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.dark_mode"),command=lambda: self.set_app_appearance_mode("Dark"))
         self.appearance_light_mode_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.light_mode"),command=lambda: self.set_app_appearance_mode("Light"))
@@ -121,25 +124,36 @@ class MainApp():
 
         # Settings menu
         self.settings_button_MenuBar = self.menu.add_cascade("Settings")
-        self.settings_dropdown = CustomDropdownMenu(widget=self.settings_button_MenuBar)
+        self.settings_dropdown = CustomDropdownMenu(widget=self.settings_button_MenuBar, font=("Arial", 13))
 
         self.context_enabled = ctk.BooleanVar(value=True)
         self.context_enabled_checkbox = ctk.CTkCheckBox(
             self.settings_dropdown,
             text="Enable Context Display",
-            variable=self.context_enabled
+            variable=self.context_enabled,
+            font=("Arial", 13)
         )
-        self.context_enabled_checkbox.pack(padx=5, pady=5)
+        self.context_enabled_checkbox.pack(padx=5, pady=5, anchor="w")
+
+        # Add option to enable low accuracy mode
+        self.enable_low_accuracy_mode = ctk.BooleanVar(value=False)
+        self.low_accuracy_checkbox = ctk.CTkCheckBox(
+            self.settings_dropdown,
+            text="Practice low-accuracy words (<90%)",
+            variable=self.enable_low_accuracy_mode,
+            font=("Arial", 13)
+        )
+        self.low_accuracy_checkbox.pack(padx=5, pady=5, anchor="w")
 
         # About menu
         self.about_button_MenuBar = self.menu.add_cascade(t_path("menubar.about.about"))
-        self.about_dropdown = CustomDropdownMenu(widget=self.about_button_MenuBar)
+        self.about_dropdown = CustomDropdownMenu(widget=self.about_button_MenuBar, font=("Arial", 13))
 
         self.about_about_this_app_option = self.about_dropdown.add_option(option=t_path("menubar.about.about_this_app"),command=lambda: AboutWindow(root, APP_SETTINGS, APP_VERSION, t_path))
 
         # Debug menu
         self.debug_button_MenuBar = self.menu.add_cascade("Debug")
-        self.debug_dropdown = CustomDropdownMenu(widget=self.debug_button_MenuBar)
+        self.debug_dropdown = CustomDropdownMenu(widget=self.debug_button_MenuBar, font=("Arial", 13))
 
         self.debug_get_program_path_option = self.debug_dropdown.add_option(option="Get Program Path",command=lambda: get_program_path(show_messagebox=True, status_flag=JSON_Loaded_flag))
         self.debug_get_cache_info_option = self.debug_dropdown.add_option(option="Print Cache Info",command=lambda: self.get_cache_info())
@@ -168,7 +182,7 @@ class MainApp():
         self.context_label = ctk.CTkLabel(
             self.main_frame,
             text="Context: ",
-            font=("Arial", 15, "italic"),
+            font=("Arial", 14, "italic"),
             text_color="#888888"
         )
         self.context_label.pack(pady=(0, 0))
@@ -177,6 +191,7 @@ class MainApp():
         self.line_info_label = ctk.CTkLabel(
             self.main_frame, 
             text=t_path("main_window.line_info_label"), # Dane pobrane z linijki:
+            text_color="gray",
             font=("Arial", 14)
         )
         self.line_info_label.pack(pady=0)
@@ -362,11 +377,25 @@ class MainApp():
 
     def update_words_info_label(self):
         loaded = len(self.vocab_word_list)
-        if self.block_repeated_questions.get():
-            remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
-            self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: {remaining}")
+        show_low_acc = self.enable_low_accuracy_mode.get()
+        low_acc_count = len(self.low_accuracy_word_list)
+        block_repeated = self.block_repeated_questions.get()
+        # If in low accuracy mode, force remaining to 0
+        if self.low_accuracy_mode:
+            if show_low_acc and block_repeated:
+                self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: 0 | Low accuracy: {low_acc_count}")
+            else:
+                self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: 0")
         else:
-            self.words_info_label.configure(text=f"Loaded: {loaded}")
+            if block_repeated:
+                remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
+                if show_low_acc:
+                    self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: {remaining} | Low accuracy: {low_acc_count}")
+                else:
+                    self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: {remaining}")
+            else:
+                # If low accuracy mode is enabled but block_repeated is off, only show Loaded
+                self.words_info_label.configure(text=f"Loaded: {loaded}")
 
     def open_console(self) -> None:
         self.gui_console.open()
@@ -475,12 +504,27 @@ class MainApp():
 
         self.hint_shown = False
 
-        # Filter words by blocklist
-        if not self.block_repeated_questions.get():
-            self.available_words = self.vocab_word_list
+        # If not in low accuracy mode, use main list
+        if not self.low_accuracy_mode:
+            # Filter words by blocklist
+            if not self.block_repeated_questions.get():
+                self.available_words = self.vocab_word_list
+            else:
+                self.available_words = [
+                    word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines
+                ]
+
+            # If main list is exhausted and low accuracy mode is enabled, switch to low accuracy mode
+            if not self.available_words and self.enable_low_accuracy_mode.get() and self.block_repeated_questions.get() and self.low_accuracy_word_list:
+                self.low_accuracy_mode = True
+                self.blocked_lines.clear()
+                self.available_words = self.low_accuracy_word_list.copy()
+                print("[INFO] Switched to low accuracy mode. Practicing words with <90% accuracy.")
+
         else:
+            # In low accuracy mode, use only low_accuracy_word_list and blocklist
             self.available_words = [
-                word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines
+                word for word in self.low_accuracy_word_list if word["line_number"] not in self.blocked_lines
             ]
 
         if not self.available_words:
@@ -598,6 +642,13 @@ class MainApp():
         self.result_label.configure(
             text=f"{t_path('main_window.result_label.percent')} {accuracy:.2f}%\n{t_path('main_window.result_label.correct')} {correct_answer}")
 
+        # If in main mode, and accuracy < 90%, add to low_accuracy_word_list if not already present
+        if not self.low_accuracy_mode and self.enable_low_accuracy_mode.get() and self.block_repeated_questions.get():
+            if accuracy < 90:
+                # Use line_number as unique identifier
+                if not any(word["line_number"] == self.selected_word["line_number"] for word in self.low_accuracy_word_list):
+                    self.low_accuracy_word_list.append(self.selected_word.copy())
+
     def skip_word(self) -> None:
         if not self.vocab_word_list:
             return print("Action blocked - [SkipWord]")
@@ -639,6 +690,9 @@ class MainApp():
         self.blocked_lines.clear()
         print("Block list cleared.")
         self.update_words_info_label()
+        # Reset low accuracy mode and list if clearing
+        self.low_accuracy_mode = False
+        self.low_accuracy_word_list.clear()
         self.skip_word()
         self.check_button.configure(state="normal")
         self.hint_button.configure(state="normal")
