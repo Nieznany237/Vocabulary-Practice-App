@@ -93,6 +93,8 @@ class MainApp():
         self.root.bind("<Right>", lambda event: self.skip_word()) # Right arrow key
         self.root.bind("<Control-c>", lambda event: self.clear_blocked_lines()) # ctrl-C key
         self.root.bind("<Control-o>", lambda event: self.open_file_dialog()) # ctrl-O key
+        self.root.bind("<Control-equal>", lambda event: self.change_ui_scale(0.1)) # ctrl + key (It uses shift but shhhhh)
+        self.root.bind("<Control-minus>", lambda event: self.change_ui_scale(-0.1)) # ctrl - key
 
         self.change_ui_scale()
 
@@ -108,7 +110,7 @@ class MainApp():
         self.file_dropdown = CustomDropdownMenu(widget=self.file_button_MenuBar, font=("Arial", 13))
 
         self.file_load_option = self.file_dropdown.add_option(option=f"{t_path('menubar.file.load_file'):<26} [Ctrl+O]",command=lambda: self.open_file_dialog())
-        self.file_clear_blocklist_option = self.file_dropdown.add_option(option=f"{t_path('main_window.buttons.clear_button'):<25} [Ctrl+C]",command=lambda: self.clear_blocked_lines(), state="disabled")
+        self.file_clear_blocklist_option = self.file_dropdown.add_option(option=f"{t_path('main_window.buttons.clear_button'):<22} [Ctrl+C]",command=lambda: self.clear_blocked_lines(), state="disabled")
         self.file_dropdown.add_separator()
         self.file_exit_option = self.file_dropdown.add_option(option=t_path("menubar.file.exit"),command=lambda: self.root.quit())
 
@@ -119,8 +121,8 @@ class MainApp():
         self.appearance_dark_mode_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.dark_mode"),command=lambda: self.set_app_appearance_mode("Dark"))
         self.appearance_light_mode_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.light_mode"),command=lambda: self.set_app_appearance_mode("Light"))
         self.appearance_dropdown.add_separator()
-        self.appearance_zoom_in_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_in"),command=lambda: self.change_ui_scale(0.1))
-        self.appearance_zoom_out_option = self.appearance_dropdown.add_option(option=t_path("menubar.appearance.zoom_out"),command=lambda: self.change_ui_scale(-0.1))
+        self.appearance_zoom_in_option = self.appearance_dropdown.add_option(option=f"{t_path('menubar.appearance.zoom_in'):<26} [Ctrl+'+']",command=lambda: self.change_ui_scale(0.1))
+        self.appearance_zoom_out_option = self.appearance_dropdown.add_option(option=f"{t_path('menubar.appearance.zoom_in'):<26} [Ctrl+'-']",command=lambda: self.change_ui_scale(-0.1))
 
         # Settings menu
         self.settings_button_MenuBar = self.menu.add_cascade("Settings")
@@ -347,6 +349,15 @@ class MainApp():
             text_color="gray"
         )
         self.words_info_label.pack(pady=(2, 0))
+
+        # Info label for low accuracy mode
+        self.low_accuracy_info_label = ctk.CTkLabel(
+            self.main_frame,
+            text="",
+            font=("Arial", 15, "bold"),
+            text_color="#FF5555"
+        )
+        self.low_accuracy_info_label.pack(pady=(5, 0))
         
     ctk.set_appearance_mode(APP_SETTINGS["appearance_mode"])
     try:
@@ -380,13 +391,15 @@ class MainApp():
         show_low_acc = self.enable_low_accuracy_mode.get()
         low_acc_count = len(self.low_accuracy_word_list)
         block_repeat = self.block_repeat_mode.get()
-        # If in low accuracy mode, force remaining to 0
+        # Show info label if in low accuracy mode
         if self.low_accuracy_mode:
+            self.low_accuracy_info_label.configure(text="Low accuracy mode: practice words that you find difficult", text_color="#FF5555")
             if show_low_acc and block_repeat:
                 self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: 0 | Low accuracy: {low_acc_count}")
             else:
                 self.words_info_label.configure(text=f"Loaded: {loaded} | Remaining: 0")
         else:
+            self.low_accuracy_info_label.configure(text="")
             if block_repeat:
                 remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
                 if show_low_acc:
@@ -530,6 +543,8 @@ class MainApp():
         if not self.available_words:
             # Brak dostępnych słówek do wyświetlenia!
             self.question_label.configure(text=t_path("main_window.question_label.No_words"))
+            self.result_label.configure(text="\n")
+            self.line_info_label.configure(text=f"{t_path('main_window.line_info_label')}")
             self.context_label.configure(text="")
             self.update_words_info_label()
             self.check_button.configure(state="disabled")
@@ -629,14 +644,13 @@ class MainApp():
             correct_answer = self.selected_word["Right_Lang"]
         else:
             correct_answer = self.selected_word["Left_Lang"]
-        
+
         # Debug
         print("\n=== Checking answer ===")
         print(f"User input: {user_translation}")
         print(f"Correct answer: {correct_answer}")
         print("precentage:", self.calculate_accuracy(correct_answer, user_translation))
         print(f"Mode: {self.current_mode}\n")
-        
 
         accuracy = self.calculate_accuracy(correct_answer, user_translation)
         self.result_label.configure(
@@ -648,6 +662,31 @@ class MainApp():
                 # Use line_number as unique identifier
                 if not any(word["line_number"] == self.selected_word["line_number"] for word in self.low_accuracy_word_list):
                     self.low_accuracy_word_list.append(self.selected_word.copy())
+
+        # If in low accuracy mode, and answer is correct (accuracy >= 90%), remove from low_accuracy_word_list
+        if self.low_accuracy_mode and accuracy >= 90:
+            self.low_accuracy_word_list = [word for word in self.low_accuracy_word_list if word["line_number"] != self.selected_word["line_number"]]
+            # Also update available_words to reflect removal
+            self.available_words = [word for word in self.available_words if word["line_number"] != self.selected_word["line_number"]]
+            self.update_words_info_label()
+
+    def print_status(self) -> None:
+        print("\n=== Debug: Vocabulary Status ===")
+        print(f"\nLoaded words: {len(self.vocab_word_list)}")
+        if self.block_repeat_mode.get():
+            remaining = len([word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines])
+            print(f"Words remaining (not repeated): {remaining}")
+        if hasattr(self, 'failed_lines') and self.failed_lines:
+            print(f"Failed to load lines: {self.failed_lines}")
+        print(f"Selected word: {self.selected_word}")
+        print(f"Selected mode: {self.selected_mode}")
+        print(f"Hint shown: {self.hint_shown}")
+        print(f"Available words: {len(self.available_words)}")
+        print(f"Blocked lines: {self.blocked_lines}\n")
+        pprint_list_of_dicts(self.available_words, width=130)
+        print(f"Low accuracy words ({len(self.low_accuracy_word_list)}):")
+        pprint_list_of_dicts(self.low_accuracy_word_list, width=130)
+        print("\n=== Debug: Vocabulary Status ===\n")
 
     def skip_word(self) -> None:
         if not self.vocab_word_list:
