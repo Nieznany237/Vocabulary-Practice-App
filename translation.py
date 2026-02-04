@@ -113,7 +113,7 @@ TRANSLATIONS_EN = {
             "check_button": "Check",
             "skip_button": "Skip/Next",
             "file_button": "Load .txt file",
-            "clear_button": "Clear block list"
+            "clear_button": "Reset progress"
         },
         "mode_label": "Choose translation mode:",
         "Radiobuttons": {
