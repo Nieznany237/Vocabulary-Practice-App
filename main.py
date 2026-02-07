@@ -10,14 +10,15 @@ import modules.translation_utils
 from modules.utils import get_program_path, load_settings_from_json, set_app_icon
 from modules.gui_console import GUIConsole
 from modules.about_window import AboutWindow
+from modules.context_selection_window import ContextSelectionWindow
 
 # temp
 from pprint import pprint
 REQUIRED_JSON_VERSION = 1
 # Application version and release date
 APP_VERSION = {
-    "version": "1.5.0 dev",
-    "release_date": "28.01.2026"
+    "version": "1.6.0 DEV",
+    "release_date": "07.02.2026"
 }
 
 RESOURCE_FILE_PATHS = {
@@ -78,6 +79,10 @@ class MainApp():
 
         self.low_accuracy_mode: bool = False  # Track if we're in low accuracy mode
 
+        # Context management
+        self.contexts_with_counts: Dict[Optional[str], int] = {}  # Map context to entry count
+        self.selected_contexts: set = set()  # Contexts selected for learning
+
         # ==========================================================================
         self.gui_console = GUIConsole(root, APP_SETTINGS)
 
@@ -110,6 +115,7 @@ class MainApp():
         self.file_dropdown = CustomDropdownMenu(widget=self.file_button_MenuBar, font=("Arial", 13))
 
         self.file_load_option = self.file_dropdown.add_option(option=f"{t_path('menubar.file.load_file'):<26} [Ctrl+O]",command=lambda: self.open_file_dialog())
+        self.file_select_contexts_option = self.file_dropdown.add_option(option="Select Contexts", command=lambda: self.open_context_selection_window(), state="disabled")
         self.file_clear_blocklist_option = self.file_dropdown.add_option(option=f"{t_path('main_window.buttons.clear_button'):<22} [Ctrl+C]",command=lambda: self.clear_blocked_lines(), state="disabled")
         self.file_dropdown.add_separator()
         self.file_exit_option = self.file_dropdown.add_option(option=t_path("menubar.file.exit"),command=lambda: self.root.quit())
@@ -503,10 +509,55 @@ class MainApp():
 
         return language_names
 
+    def calculate_contexts_from_words(self) -> None:
+        """
+        Calculate the number of entries per context from the loaded vocabulary.
+        Updates self.contexts_with_counts and initializes selected_contexts to all contexts.
+        """
+        self.contexts_with_counts = {}
+        for word in self.vocab_word_list:
+            context = word.get("context")
+            self.contexts_with_counts[context] = self.contexts_with_counts.get(context, 0) + 1
+        
+        # Initialize selected_contexts to include all contexts
+        self.selected_contexts = set(self.contexts_with_counts.keys())
+        
+        print(f"[INFO] Contexts found: {self.contexts_with_counts}")
+
+    def open_context_selection_window(self) -> None:
+        """Open the context selection window."""
+        if not self.contexts_with_counts:
+            print("[WARNING] No contexts available. Load a file first.")
+            return
+        
+        ContextSelectionWindow(
+            self.root,
+            contexts_with_counts=self.contexts_with_counts,
+            selected_contexts=self.selected_contexts,
+            on_apply=self.apply_context_selection,
+            t_path=t_path
+        )
+
+    def apply_context_selection(self, selected_contexts: set) -> None:
+        """
+        Apply the context selection and reload words.
+        
+        Args:
+            selected_contexts: Set of contexts selected by the user
+        """
+        self.selected_contexts = selected_contexts
+        print(f"[INFO] Selected contexts: {self.selected_contexts}")
+        # Reload and filter words
+        if self.vocab_word_list:
+            self.low_accuracy_mode = False
+            self.low_accuracy_word_list.clear()
+            self.update_words_info_label()
+            self.pick_new_word()
+
     def pick_new_word(self) -> None:
         """
         Selects a new word for the vocabulary practice session according to the current mode and blocklist settings.
-        Displays context if available.
+        Displays context if available. Filters by selected contexts.
         """
         if not self.vocab_word_list:
             # Brak załadowanych słówek!
@@ -519,12 +570,17 @@ class MainApp():
 
         # If not in low accuracy mode, use main list
         if not self.low_accuracy_mode:
-            # Filter words by blocklist
+            # Filter words by blocklist and selected contexts
             if not self.block_repeat_mode.get():
-                self.available_words = self.vocab_word_list
+                self.available_words = [
+                    word for word in self.vocab_word_list 
+                    if word.get("context") in self.selected_contexts
+                ]
             else:
                 self.available_words = [
-                    word for word in self.vocab_word_list if word["line_number"] not in self.blocked_lines
+                    word for word in self.vocab_word_list 
+                    if word["line_number"] not in self.blocked_lines 
+                    and word.get("context") in self.selected_contexts
                 ]
 
             # If main list is exhausted and low accuracy mode is enabled, switch to low accuracy mode
@@ -535,9 +591,11 @@ class MainApp():
                 print("[INFO] Switched to low accuracy mode. Practicing words with <90% accuracy.")
 
         else:
-            # In low accuracy mode, use only low_accuracy_word_list and blocklist
+            # In low accuracy mode, use only low_accuracy_word_list, blocklist, and selected contexts
             self.available_words = [
-                word for word in self.low_accuracy_word_list if word["line_number"] not in self.blocked_lines
+                word for word in self.low_accuracy_word_list 
+                if word["line_number"] not in self.blocked_lines
+                and word.get("context") in self.selected_contexts
             ]
 
         if not self.available_words:
@@ -603,6 +661,7 @@ class MainApp():
 
         # MenuBar
         self.file_clear_blocklist_option.configure(state=state)
+        self.file_select_contexts_option.configure(state=state)
 
     def disable_all_buttons(self) -> None:
         """Deactivates all buttons and radiobuttons."""
@@ -704,6 +763,7 @@ class MainApp():
         file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
         if file_path:
             self.vocab_word_list = self.load_words_from_file(file_path)
+            self.calculate_contexts_from_words()
             self.update_words_info_label()
             if self.vocab_word_list:
                 self.enable_all_buttons()
